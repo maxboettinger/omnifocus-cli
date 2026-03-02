@@ -52,7 +52,7 @@ All commands support `--json` for machine-readable output (globally or per-comma
 ```
 src/
 ├── index.ts                    # Entry: creates program, registers commands
-├── commands/                   # CLI layer (thin: parse → client → format)
+├── commands/                   # CLI layer (thin: parse → service → format)
 │   ├── task/                   # add, list, update, complete, search, show, subtask, tag
 │   ├── project/                # add, list, show, update, rename, delete
 │   ├── tag/                    # add, list, rename, delete, tasks
@@ -62,6 +62,7 @@ src/
 │   ├── forecast.ts
 │   ├── review.ts
 │   └── stats.ts
+├── services/                   # Business logic (pure TS, injectable client)
 ├── core/
 │   ├── types.ts                # All domain types, OmniFocusClient interface
 │   ├── errors.ts               # Error hierarchy (CLIError, BridgeError, etc.)
@@ -111,7 +112,7 @@ Operations: `task.create`, `task.get`, `task.update`, `task.complete`, `task.lis
 
 ### Things to Know
 
-**Single JXA bridge replaces 30+ separate scripts.** The old architecture had one `.js` file per operation, each loading a shared library via `eval()` + ObjC `NSString` bridge. The new `bridge.js` is a single entry point handling all operations via a JSON command protocol.
+**Single JXA bridge handles all OmniFocus communication.** `bridge.js` is the sole entry point — a unified script handling all operations via a JSON command protocol. All Apple Event logic lives here; everything else is TypeScript.
 
 **`plannedDate` is guarded everywhere.** Added for OmniFocus 4.7+, every access is wrapped in try/catch. The distinction between `deferDate` (hidden until date) and `plannedDate` (scheduled but available) is significant: forecast treats `planned_today` as the primary "what to do today" bucket.
 
@@ -126,17 +127,11 @@ Operations: `task.create`, `task.get`, `task.update`, `task.complete`, `task.lis
 ### Development
 
 ```bash
-bun test              # Run all tests (41 tests)
+bun test              # Run all tests (45 tests)
 bun run check         # Biome lint + format check
 bun run typecheck     # TypeScript strict checks
 bun run build         # Compile to single binary: ./of
 bun run dev -- task list --json   # Run CLI in dev mode
 ```
-
-### Legacy Files
-
-- `src/*.js` — Original JXA scripts (30+ files). Retained for reference during migration. Will be removed once all operations are verified against real OmniFocus.
-- `src/_omnifocus_lib.js` — Original shared JXA library.
-- `tests/` — Original JXA test files.
 
 Created and maintained by Nori.

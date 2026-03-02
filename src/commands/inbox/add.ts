@@ -1,6 +1,14 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
-import { outputJson, outputSuccess, outputTaskDetail, resolveFormat } from "../../core/output.js";
+import { BridgeError } from "../../core/errors.js";
+import {
+	outputError,
+	outputJson,
+	outputSuccess,
+	outputTaskDetail,
+	resolveFormat,
+} from "../../core/output.js";
+import { parseIntOption } from "../../core/parsers.js";
 import type { OmniFocusClient } from "../../core/types.js";
 
 export function registerAddCommand(parent: Command, client: OmniFocusClient): void {
@@ -14,7 +22,7 @@ export function registerAddCommand(parent: Command, client: OmniFocusClient): vo
 		.option("--planned <date>", "Planned date")
 		.option("--tag <name>", "Add tag (repeatable)", collect, [])
 		.option("--flag", "Flag the task")
-		.option("--estimate <minutes>", "Estimated minutes", Number.parseInt)
+		.option("--estimate <minutes>", "Estimated minutes", parseIntOption)
 		.option("--project <name>", "Project name")
 		.option("--repeat <rrule>", "Repetition rule")
 		.option("--repeat-method <method>", "Repetition method")
@@ -48,9 +56,11 @@ export function registerAddCommand(parent: Command, client: OmniFocusClient): vo
 					console.log(outputTaskDetail(data.task, "human"));
 				}
 			} catch (error) {
-				const message = error instanceof Error ? error.message : String(error);
-				console.error(`Error adding to inbox: ${message}`);
-				process.exit(1);
+				if (error instanceof BridgeError) {
+					outputError(error.format());
+					process.exit(1);
+				}
+				throw error;
 			}
 		});
 }

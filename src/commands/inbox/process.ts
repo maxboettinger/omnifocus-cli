@@ -1,6 +1,14 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
-import { outputChanges, outputJson, outputSuccess, resolveFormat } from "../../core/output.js";
+import { BridgeError } from "../../core/errors.js";
+import {
+	outputChanges,
+	outputError,
+	outputJson,
+	outputSuccess,
+	resolveFormat,
+} from "../../core/output.js";
+import { parseIntOption } from "../../core/parsers.js";
 import type { OmniFocusClient } from "../../core/types.js";
 
 export function registerProcessCommand(parent: Command, client: OmniFocusClient): void {
@@ -17,7 +25,7 @@ export function registerProcessCommand(parent: Command, client: OmniFocusClient)
 		.option("--due <date>", "Set due date")
 		.option("--defer <date>", "Set defer date")
 		.option("--planned <date>", "Set planned date")
-		.option("--estimate <minutes>", "Set estimated minutes", Number.parseInt)
+		.option("--estimate <minutes>", "Set estimated minutes", parseIntOption)
 		.option("--flag", "Flag the item")
 		.option("--unflag", "Remove flag")
 		.option("--sequential", "Make sequential")
@@ -74,9 +82,11 @@ export function registerProcessCommand(parent: Command, client: OmniFocusClient)
 					outputChanges("inbox item", id, data.changes);
 				}
 			} catch (error) {
-				const message = error instanceof Error ? error.message : String(error);
-				console.error(`Error processing inbox item: ${message}`);
-				process.exit(1);
+				if (error instanceof BridgeError) {
+					outputError(error.format());
+					process.exit(1);
+				}
+				throw error;
 			}
 		});
 }

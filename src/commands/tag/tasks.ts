@@ -1,6 +1,8 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
-import { outputTaskList, resolveFormat } from "../../core/output.js";
+import { BridgeError } from "../../core/errors.js";
+import { outputError, outputTaskList, resolveFormat } from "../../core/output.js";
+import { parseIntOption } from "../../core/parsers.js";
 import type { OmniFocusClient } from "../../core/types.js";
 
 export function registerTasksCommand(parent: Command, client: OmniFocusClient): void {
@@ -8,7 +10,7 @@ export function registerTasksCommand(parent: Command, client: OmniFocusClient): 
 		.command("tasks")
 		.description("List tasks with this tag")
 		.argument("<name>", "Tag name")
-		.option("--limit <n>", "Limit number of results", Number.parseInt)
+		.option("--limit <n>", "Limit number of results", parseIntOption)
 		.option("--json", "JSON output")
 		.action(async (name: string, opts: Record<string, unknown>, cmd: Command) => {
 			try {
@@ -18,9 +20,11 @@ export function registerTasksCommand(parent: Command, client: OmniFocusClient): 
 
 				outputTaskList(data, format);
 			} catch (error) {
-				const message = error instanceof Error ? error.message : String(error);
-				console.error(`Error listing tasks by tag: ${message}`);
-				process.exit(1);
+				if (error instanceof BridgeError) {
+					outputError(error.format());
+					process.exit(1);
+				}
+				throw error;
 			}
 		});
 }

@@ -1,7 +1,7 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
-import { outputJson, outputSuccess, resolveFormat } from "../../core/output.js";
-import { bold, outputError } from "../../core/output.js";
+import { BridgeError } from "../../core/errors.js";
+import { bold, outputError, outputJson, outputSuccess, resolveFormat } from "../../core/output.js";
 import type { OmniFocusClient } from "../../core/types.js";
 
 export function registerDeleteCommand(parent: Command, client: OmniFocusClient): void {
@@ -37,8 +37,11 @@ export function registerDeleteCommand(parent: Command, client: OmniFocusClient):
 
 				outputSuccess(`${data.action}: ${bold(data.name)}`);
 			} catch (error) {
-				outputError(error instanceof Error ? error.message : String(error));
-				process.exit(1);
+				if (error instanceof BridgeError) {
+					outputError(error.format());
+					process.exit(1);
+				}
+				throw error;
 			}
 		});
 }

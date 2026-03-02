@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
+import { BridgeError } from "../../core/errors.js";
 import { outputChanges, outputJson, resolveFormat } from "../../core/output.js";
 import { outputError } from "../../core/output.js";
 import type { OmniFocusClient } from "../../core/types.js";
@@ -48,8 +49,11 @@ export function registerUpdateCommand(parent: Command, client: OmniFocusClient):
 
 				outputChanges("project", data.project.name, data.changes);
 			} catch (error) {
-				outputError(error instanceof Error ? error.message : String(error));
-				process.exit(1);
+				if (error instanceof BridgeError) {
+					outputError(error.format());
+					process.exit(1);
+				}
+				throw error;
 			}
 		});
 }

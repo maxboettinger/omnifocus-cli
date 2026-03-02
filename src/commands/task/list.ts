@@ -2,6 +2,7 @@ import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
 import { BridgeError } from "../../core/errors.js";
 import { outputError, outputTaskList, resolveFormat } from "../../core/output.js";
+import { parseIntOption } from "../../core/parsers.js";
 import type { OmniFocusClient, TaskFilter } from "../../core/types.js";
 
 export function registerListCommand(parent: Command, client: OmniFocusClient): void {
@@ -13,7 +14,7 @@ export function registerListCommand(parent: Command, client: OmniFocusClient): v
 			"Filter type (inbox|available|flagged|due-soon|overdue|all)",
 			"available",
 		)
-		.option("--limit <n>", "Maximum number of tasks", (v: string) => Number.parseInt(v, 10), 20)
+		.option("--limit <n>", "Maximum number of tasks", parseIntOption, 20)
 		.option("--json", "JSON output")
 		.action(async (opts: Record<string, unknown>, cmd: Command) => {
 			try {

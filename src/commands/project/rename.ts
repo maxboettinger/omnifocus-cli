@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
+import { BridgeError } from "../../core/errors.js";
 import { outputJson, outputSuccess, resolveFormat } from "../../core/output.js";
 import { bold, outputError } from "../../core/output.js";
 import type { OmniFocusClient } from "../../core/types.js";
@@ -30,8 +31,11 @@ export function registerRenameCommand(parent: Command, client: OmniFocusClient):
 
 				outputSuccess(`Renamed project: ${bold(data.oldName)} → ${bold(data.newName)}`);
 			} catch (error) {
-				outputError(error instanceof Error ? error.message : String(error));
-				process.exit(1);
+				if (error instanceof BridgeError) {
+					outputError(error.format());
+					process.exit(1);
+				}
+				throw error;
 			}
 		});
 }

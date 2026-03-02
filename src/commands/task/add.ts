@@ -2,6 +2,7 @@ import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
 import { BridgeError } from "../../core/errors.js";
 import { outputError, outputJson, outputTaskDetail, resolveFormat } from "../../core/output.js";
+import { parseIntOption } from "../../core/parsers.js";
 import type { OmniFocusClient } from "../../core/types.js";
 
 export function registerAddCommand(parent: Command, client: OmniFocusClient): void {
@@ -15,7 +16,7 @@ export function registerAddCommand(parent: Command, client: OmniFocusClient): vo
 		.option("--planned <date>", "Planned date")
 		.option("--tag <name>", "Apply tag (repeatable)", collect, [])
 		.option("--flag", "Flag the task")
-		.option("--estimate <minutes>", "Estimated minutes", Number.parseInt)
+		.option("--estimate <minutes>", "Estimated minutes", parseIntOption)
 		.option("--project <name>", "Project name")
 		.option("--sequential", "Make task sequential")
 		.option("--repeat <rrule>", "Repetition rule")

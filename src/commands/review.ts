@@ -1,6 +1,7 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../core/client.js";
-import { bold, dim, green, outputJson, red, resolveFormat } from "../core/output.js";
+import { BridgeError } from "../core/errors.js";
+import { bold, dim, green, outputError, outputJson, resolveFormat } from "../core/output.js";
 import type { OmniFocusClient } from "../core/types.js";
 
 export function registerReviewCommand(program: Command, client: OmniFocusClient): void {
@@ -98,10 +99,11 @@ export function registerReviewCommand(program: Command, client: OmniFocusClient)
 					}
 				}
 			} catch (error) {
-				console.error(
-					`${red("✗")} Failed to get review: ${error instanceof Error ? error.message : String(error)}`,
-				);
-				process.exit(1);
+				if (error instanceof BridgeError) {
+					outputError(error.format());
+					process.exit(1);
+				}
+				throw error;
 			}
 		});
 }

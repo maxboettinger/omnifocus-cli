@@ -142,13 +142,23 @@ async function runCommand(
 	setup: (program: Command, client: OmniFocusClient) => void,
 	argv: string[],
 	client?: OmniFocusClient,
-): Promise<{ client: OmniFocusClient }> {
+): Promise<{ client: OmniFocusClient; stdout: string[] }> {
 	const c = client ?? createMockClient();
 	const program = new Command();
 	program.name("of").exitOverride();
 	setup(program, c);
-	await program.parseAsync(argv, { from: "user" });
-	return { client: c };
+
+	const stdout: string[] = [];
+	const origLog = console.log;
+	console.log = (...args: unknown[]) => {
+		stdout.push(args.map(String).join(" "));
+	};
+	try {
+		await program.parseAsync(argv, { from: "user" });
+	} finally {
+		console.log = origLog;
+	}
+	return { client: c, stdout };
 }
 
 // ── Task commands ───────────────────────────────────────────────────────────

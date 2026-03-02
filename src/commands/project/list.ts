@@ -1,7 +1,9 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
+import { BridgeError } from "../../core/errors.js";
 import { outputProjectList, resolveFormat } from "../../core/output.js";
 import { outputError } from "../../core/output.js";
+import { parseIntOption } from "../../core/parsers.js";
 import type { OmniFocusClient } from "../../core/types.js";
 
 export function registerListCommand(parent: Command, client: OmniFocusClient): void {
@@ -14,7 +16,7 @@ export function registerListCommand(parent: Command, client: OmniFocusClient): v
 		.option("--count", "Include task counts")
 		.option("--full", "Verbose output")
 		.option("--active-only", "Show only active projects")
-		.option("--limit <n>", "Limit number of results", Number.parseInt)
+		.option("--limit <n>", "Limit number of results", parseIntOption)
 		.option("--json", "JSON output")
 		.action(async (opts: Record<string, unknown>, cmd: Command) => {
 			try {
@@ -35,8 +37,11 @@ export function registerListCommand(parent: Command, client: OmniFocusClient): v
 
 				outputProjectList(data, format);
 			} catch (error) {
-				outputError(error instanceof Error ? error.message : String(error));
-				process.exit(1);
+				if (error instanceof BridgeError) {
+					outputError(error.format());
+					process.exit(1);
+				}
+				throw error;
 			}
 		});
 }

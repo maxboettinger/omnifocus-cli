@@ -8,6 +8,7 @@
 
 import { describe, expect, mock, test } from "bun:test";
 import { Command } from "commander";
+import { registerCollectCommand } from "../../src/commands/collect.js";
 import { registerFolderCommands } from "../../src/commands/folder/index.js";
 import { registerInboxCommands } from "../../src/commands/inbox/index.js";
 import { registerProjectCommands } from "../../src/commands/project/index.js";
@@ -65,6 +66,11 @@ function createMockClient(): OmniFocusClient {
 					applied: ["urgent"],
 					task: MOCK_TASK,
 				}),
+			),
+		),
+		deleteTask: mock(() =>
+			Promise.resolve(
+				successResponse({ id: MOCK_TASK.id, name: MOCK_TASK.name, action: "deleted" }),
 			),
 		),
 
@@ -407,5 +413,92 @@ describe("stats command", () => {
 	test("stats calls client.stats()", async () => {
 		const { client } = await runCommand(registerStatsCommand, ["stats", "--json"]);
 		expect(client.stats).toHaveBeenCalledTimes(1);
+	});
+});
+
+// ── Collect command ──────────────────────────────────────────────────────────
+
+describe("collect command", () => {
+	test("collect calls client.collectCompleted with default days", async () => {
+		const { client } = await runCommand(registerCollectCommand, ["collect", "--json"]);
+		expect(client.collectCompleted).toHaveBeenCalledTimes(1);
+		const call = (client.collectCompleted as ReturnType<typeof mock>).mock.calls[0] as [
+			number | undefined,
+		];
+		expect(call[0]).toBeUndefined();
+	});
+
+	test("collect passes --days option", async () => {
+		const { client } = await runCommand(registerCollectCommand, [
+			"collect",
+			"--days",
+			"14",
+			"--json",
+		]);
+		expect(client.collectCompleted).toHaveBeenCalledTimes(1);
+		const call = (client.collectCompleted as ReturnType<typeof mock>).mock.calls[0] as [
+			number | undefined,
+		];
+		expect(call[0]).toBe(14);
+	});
+});
+
+// ── Task delete command ─────────────────────────────────────────────────────
+
+describe("task delete command", () => {
+	test("task delete with --confirm calls deleteTask", async () => {
+		const { client } = await runCommand(registerTaskCommands, [
+			"task",
+			"delete",
+			"Buy groceries",
+			"--confirm",
+			"--json",
+		]);
+		expect(client.deleteTask).toHaveBeenCalledTimes(1);
+		const call = (client.deleteTask as ReturnType<typeof mock>).mock.calls[0] as [
+			string,
+			Record<string, unknown>,
+		];
+		expect(call[0]).toBe("Buy groceries");
+		expect(call[1]).toMatchObject({ confirm: true });
+	});
+
+	test("task delete with --id calls deleteTask with id", async () => {
+		const { client } = await runCommand(registerTaskCommands, [
+			"task",
+			"delete",
+			"Buy groceries",
+			"--id",
+			"task-abc123",
+			"--confirm",
+			"--json",
+		]);
+		expect(client.deleteTask).toHaveBeenCalledTimes(1);
+		const call = (client.deleteTask as ReturnType<typeof mock>).mock.calls[0] as [
+			string,
+			Record<string, unknown>,
+		];
+		expect(call[1]).toMatchObject({ id: "task-abc123", confirm: true });
+	});
+
+	test("task delete without --confirm exits with error", async () => {
+		const c = createMockClient();
+		const origExit = process.exit;
+		let exitCode: number | undefined;
+		process.exit = ((code?: number) => {
+			exitCode = code;
+		}) as never;
+		try {
+			const { stderr } = await runCommand(
+				registerTaskCommands,
+				["task", "delete", "Buy groceries"],
+				c,
+			);
+			expect(c.deleteTask).not.toHaveBeenCalled();
+			expect(exitCode).toBe(1);
+			expect(stderr.some((line) => line.includes("--confirm"))).toBeTrue();
+		} finally {
+			process.exit = origExit;
+		}
 	});
 });

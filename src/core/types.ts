@@ -247,7 +247,6 @@ export interface TagListOptions {
 
 export interface FolderListOptions {
 	search?: string;
-	status?: string;
 	count?: boolean;
 	limit?: number;
 }
@@ -468,6 +467,10 @@ export interface OmniFocusClient {
 		tags: string[],
 		opts?: { id?: string },
 	): Promise<BridgeResponse<{ id: string; name: string; applied: string[]; task: OFTask }>>;
+	deleteTask(
+		query: string,
+		opts?: { id?: string; confirm?: boolean },
+	): Promise<BridgeResponse<{ id: string; name: string; action: string }>>;
 
 	// Projects
 	createProject(

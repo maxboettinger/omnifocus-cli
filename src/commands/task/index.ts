@@ -2,6 +2,7 @@ import type { Command } from "commander";
 import type { OmniFocusClient } from "../../core/types.js";
 import { registerAddCommand } from "./add.js";
 import { registerCompleteCommand } from "./complete.js";
+import { registerDeleteCommand } from "./delete.js";
 import { registerListCommand } from "./list.js";
 import { registerSearchCommand } from "./search.js";
 import { registerShowCommand } from "./show.js";
@@ -16,6 +17,7 @@ export function registerTaskCommands(program: Command, client: OmniFocusClient):
 	registerListCommand(cmd, client);
 	registerUpdateCommand(cmd, client);
 	registerCompleteCommand(cmd, client);
+	registerDeleteCommand(cmd, client);
 	registerSearchCommand(cmd, client);
 	registerShowCommand(cmd, client);
 	registerSubtaskCommand(cmd, client);

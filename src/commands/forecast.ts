@@ -1,11 +1,13 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../core/client.js";
+import { BridgeError } from "../core/errors.js";
 import {
 	bold,
 	cyan,
 	dim,
 	formatTaskLine,
 	green,
+	outputError,
 	outputJson,
 	red,
 	resolveFormat,
@@ -120,10 +122,11 @@ export function registerForecastCommand(program: Command, client: OmniFocusClien
 					),
 				);
 			} catch (error) {
-				console.error(
-					`${red("✗")} Failed to get forecast: ${error instanceof Error ? error.message : String(error)}`,
-				);
-				process.exit(1);
+				if (error instanceof BridgeError) {
+					outputError(error.format());
+					process.exit(1);
+				}
+				throw error;
 			}
 		});
 }

@@ -7,6 +7,7 @@
 
 import { Command } from "commander";
 import { registerBulkCommands } from "./commands/bulk/index.js";
+import { registerCompletionCommand } from "./commands/completion.js";
 import { registerFolderCommands } from "./commands/folder/index.js";
 import { registerForecastCommand } from "./commands/forecast.js";
 import { registerInboxCommands } from "./commands/inbox/index.js";
@@ -38,6 +39,7 @@ registerBulkCommands(program, client);
 registerForecastCommand(program, client);
 registerReviewCommand(program, client);
 registerStatsCommand(program, client);
+registerCompletionCommand(program);
 
 // Global error handler
 program.exitOverride();

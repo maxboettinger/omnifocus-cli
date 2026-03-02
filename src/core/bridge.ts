@@ -60,7 +60,19 @@ export async function executeBridge<T = unknown>(
 			throw new JXAExecutionError("JXA bridge returned empty response", "");
 		}
 
-		return JSON.parse(trimmed) as BridgeResponse<T>;
+		const parsed: unknown = JSON.parse(trimmed);
+		if (
+			typeof parsed !== "object" ||
+			parsed === null ||
+			!("ok" in parsed) ||
+			typeof (parsed as { ok: unknown }).ok !== "boolean"
+		) {
+			throw new JXAExecutionError(
+				"JXA bridge returned malformed response (missing 'ok' field)",
+				trimmed,
+			);
+		}
+		return parsed as BridgeResponse<T>;
 	} catch (error) {
 		if (error instanceof JXAExecutionError) throw error;
 

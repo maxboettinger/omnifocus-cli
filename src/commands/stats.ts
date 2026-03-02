@@ -1,6 +1,15 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../core/client.js";
-import { bold, green, outputJson, red, resolveFormat, yellow } from "../core/output.js";
+import { BridgeError } from "../core/errors.js";
+import {
+	bold,
+	green,
+	outputError,
+	outputJson,
+	red,
+	resolveFormat,
+	yellow,
+} from "../core/output.js";
 import type { OmniFocusClient } from "../core/types.js";
 
 export function registerStatsCommand(program: Command, client: OmniFocusClient): void {
@@ -93,10 +102,11 @@ export function registerStatsCommand(program: Command, client: OmniFocusClient):
 					console.log(`  ${yellow("🚫")} ${data.tasks.blocked} blocked tasks`);
 				}
 			} catch (error) {
-				console.error(
-					`${red("✗")} Failed to get stats: ${error instanceof Error ? error.message : String(error)}`,
-				);
-				process.exit(1);
+				if (error instanceof BridgeError) {
+					outputError(error.format());
+					process.exit(1);
+				}
+				throw error;
 			}
 		});
 }

@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
+import { BridgeError } from "../../core/errors.js";
 import {
 	formatProjectDetail,
 	outputJson,
@@ -44,8 +45,11 @@ export function registerAddCommand(parent: Command, client: OmniFocusClient): vo
 				outputSuccess(`Created project: ${data.project.name}`);
 				console.log(formatProjectDetail(data.project));
 			} catch (error) {
-				outputError(error instanceof Error ? error.message : String(error));
-				process.exit(1);
+				if (error instanceof BridgeError) {
+					outputError(error.format());
+					process.exit(1);
+				}
+				throw error;
 			}
 		});
 }

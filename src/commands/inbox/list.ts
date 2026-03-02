@@ -1,18 +1,15 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
-import { outputTaskList, resolveFormat } from "../../core/output.js";
+import { BridgeError } from "../../core/errors.js";
+import { outputError, outputTaskList, resolveFormat } from "../../core/output.js";
+import { parseIntOption } from "../../core/parsers.js";
 import type { OmniFocusClient } from "../../core/types.js";
 
 export function registerListCommand(parent: Command, client: OmniFocusClient): void {
 	parent
 		.command("list")
 		.description("List inbox items")
-		.option(
-			"--limit <n>",
-			"Limit number of results (default: 500)",
-			(v: string) => Number.parseInt(v, 10),
-			500,
-		)
+		.option("--limit <n>", "Limit number of results (default: 500)", parseIntOption, 500)
 		.option("--json", "JSON output")
 		.action(async (opts: Record<string, unknown>, cmd: Command) => {
 			try {
@@ -23,9 +20,11 @@ export function registerListCommand(parent: Command, client: OmniFocusClient): v
 
 				outputTaskList(data, format);
 			} catch (error) {
-				const message = error instanceof Error ? error.message : String(error);
-				console.error(`Error listing inbox: ${message}`);
-				process.exit(1);
+				if (error instanceof BridgeError) {
+					outputError(error.format());
+					process.exit(1);
+				}
+				throw error;
 			}
 		});
 }

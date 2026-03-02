@@ -1,6 +1,8 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
-import { outputFolderList, resolveFormat } from "../../core/output.js";
+import { BridgeError } from "../../core/errors.js";
+import { outputError, outputFolderList, resolveFormat } from "../../core/output.js";
+import { parseIntOption } from "../../core/parsers.js";
 import type { OmniFocusClient } from "../../core/types.js";
 
 export function registerListCommand(parent: Command, client: OmniFocusClient): void {
@@ -9,7 +11,7 @@ export function registerListCommand(parent: Command, client: OmniFocusClient): v
 		.description("List folders")
 		.option("--search <query>", "Search for folders by name")
 		.option("--count", "Include project counts")
-		.option("--limit <n>", "Limit number of results", Number.parseInt)
+		.option("--limit <n>", "Limit number of results", parseIntOption)
 		.option("--json", "JSON output")
 		.action(async (opts: Record<string, unknown>, cmd: Command) => {
 			try {
@@ -23,9 +25,11 @@ export function registerListCommand(parent: Command, client: OmniFocusClient): v
 
 				outputFolderList(data, format);
 			} catch (error) {
-				const message = error instanceof Error ? error.message : String(error);
-				console.error(`Error listing folders: ${message}`);
-				process.exit(1);
+				if (error instanceof BridgeError) {
+					outputError(error.format());
+					process.exit(1);
+				}
+				throw error;
 			}
 		});
 }

@@ -1,6 +1,7 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
-import { outputJson, outputSuccess, resolveFormat } from "../../core/output.js";
+import { BridgeError } from "../../core/errors.js";
+import { outputError, outputJson, outputSuccess, resolveFormat } from "../../core/output.js";
 import type { OmniFocusClient } from "../../core/types.js";
 
 export function registerAddCommand(parent: Command, client: OmniFocusClient): void {
@@ -22,9 +23,11 @@ export function registerAddCommand(parent: Command, client: OmniFocusClient): vo
 
 				outputSuccess(`Created tag: ${data.name}`);
 			} catch (error) {
-				const message = error instanceof Error ? error.message : String(error);
-				console.error(`Error creating tag: ${message}`);
-				process.exit(1);
+				if (error instanceof BridgeError) {
+					outputError(error.format());
+					process.exit(1);
+				}
+				throw error;
 			}
 		});
 }

@@ -75,6 +75,10 @@ export function createClient(): OmniFocusClient {
 			return executeBridge(cmd("task.applyTag", { query, tags, ...opts }));
 		},
 
+		async deleteTask(query: string, opts?: { id?: string; confirm?: boolean }) {
+			return executeBridge(cmd("task.delete", { query, ...opts }));
+		},
+
 		// ── Projects ──────────────────────────────────────────────────
 
 		async createProject(opts: ProjectCreateOptions) {

@@ -5,7 +5,7 @@ Path: @/src/commands
 ### Overview
 - CLI layer that parses user input and dispatches to `@/src/core/client.ts`. Commands are thin wrappers: parse args → call client → format output → handle errors.
 - Organized as a noun-verb hierarchy: `of <noun> <verb> [args] [options]`. Each noun (task, project, tag, folder, inbox, bulk) is a directory with a Commander subcommand; verbs are individual files within it.
-- A handful of standalone commands (forecast, review, stats, completion) register directly on the root program without a noun grouping.
+- A handful of standalone commands (forecast, review, stats, collect, completion) register directly on the root program without a noun grouping.
 
 ### How it fits into the larger codebase
 - This is the outermost layer of the application — nothing imports from `commands/`; it only imports from `@/src/core/`.

@@ -341,6 +341,23 @@ ops["task.complete"] = function(of, doc, p) {
     return ok({ id: task.id(), name: task.name(), action: action, task: formatTask(task) });
 };
 
+ops["task.delete"] = function(of, doc, p) {
+    if (!p.query && !p.id) return fail("Task query or id required");
+    if (!p.confirm) return fail("Delete requires confirm: true for safety");
+    var findResult;
+    if (p.id) {
+        var found = findTaskById(doc, p.id);
+        if (!found) return fail("Task not found with ID: " + p.id);
+        findResult = { task: found };
+    } else {
+        findResult = findTaskByQuery(doc, p.query);
+    }
+    if (findResult.error) return fail(findResult.error, findResult.candidates ? { candidates: findResult.candidates } : {});
+    var task = findResult.task;
+    var name = task.name();
+    of.delete(task);
+    return ok({ id: p.id || task.id(), name: name, action: "deleted" });
+};
 ops["task.list"] = function(of, doc, p) {
     var filter = p.filter || "available";
     var limit = p.limit || (filter === "inbox" ? 500 : 20);

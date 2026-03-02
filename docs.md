@@ -35,7 +35,7 @@ Noun-verb pattern: `of <noun> <verb> [args] [options]`
 
 | Command Group | Verbs | Example |
 |---------------|-------|---------|
-| `task` | add, list, update, complete, search, show, subtask, tag | `of task add "Buy milk" --due 2026-03-05 --flag` |
+| `task` | add, list, update, complete, delete, search, show, subtask, tag | `of task add "Buy milk" --due 2026-03-05 --flag` |
 | `project` | add, list, show, update, rename, delete | `of project list --status active` |
 | `tag` | add, list, rename, delete, tasks | `of tag tasks "errand" --json` |
 | `folder` | add, list | `of folder add "Personal" --parent "Life"` |
@@ -44,6 +44,7 @@ Noun-verb pattern: `of <noun> <verb> [args] [options]`
 | `forecast` | (top-level) | `of forecast --days 3` |
 | `review` | (top-level) | `of review` |
 | `stats` | (top-level) | `of stats --json` |
+| `collect` | (top-level) | `of collect --days 7` |
 
 All commands support `--json` for machine-readable output (globally or per-command).
 
@@ -100,7 +101,7 @@ Input:  { "op": "task.create", "params": { "name": "Buy groceries", "due": "2026
 Output: { "ok": true, "data": { "id": "...", "name": "Buy groceries", "task": { ... } } }
 ```
 
-Operations: `task.create`, `task.get`, `task.update`, `task.complete`, `task.list`, `task.search`, `task.subtask`, `task.applyTag`, `project.create`, `project.get`, `project.list`, `project.update`, `project.rename`, `project.delete`, `tag.create`, `tag.list`, `tag.rename`, `tag.delete`, `tag.tasks`, `folder.create`, `folder.list`, `inbox.list`, `inbox.add`, `inbox.process`, `bulk.create`, `bulk.update`, `bulk.complete`, `forecast`, `review`, `stats`, `collect.completed`
+Operations: `task.create`, `task.get`, `task.update`, `task.complete`, `task.delete`, `task.list`, `task.search`, `task.subtask`, `task.applyTag`, `project.create`, `project.get`, `project.list`, `project.update`, `project.rename`, `project.delete`, `tag.create`, `tag.list`, `tag.rename`, `tag.delete`, `tag.tasks`, `folder.create`, `folder.list`, `inbox.list`, `inbox.add`, `inbox.process`, `bulk.create`, `bulk.update`, `bulk.complete`, `forecast`, `review`, `stats`, `collect.completed`
 
 ### Error Hierarchy
 

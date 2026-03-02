@@ -6,6 +6,7 @@ import {
 	outputJson,
 	outputSuccess,
 	outputTaskDetail,
+	outputWarning,
 	resolveFormat,
 } from "../../core/output.js";
 import { parseIntOption } from "../../core/parsers.js";
@@ -51,9 +52,14 @@ export function registerAddCommand(parent: Command, client: OmniFocusClient): vo
 				}
 
 				outputSuccess(`Added to inbox: ${data.name}`);
+				if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+					for (const warning of data.warnings) {
+						outputWarning(`Partial apply warning: ${warning}`);
+					}
+				}
 				if (data.task) {
 					console.log();
-					console.log(outputTaskDetail(data.task, "human"));
+					outputTaskDetail(data.task, "human");
 				}
 			} catch (error) {
 				if (error instanceof BridgeError) {

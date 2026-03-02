@@ -1,7 +1,13 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
 import { BridgeError } from "../../core/errors.js";
-import { outputError, outputJson, outputTaskDetail, resolveFormat } from "../../core/output.js";
+import {
+	outputError,
+	outputJson,
+	outputTaskDetail,
+	outputWarning,
+	resolveFormat,
+} from "../../core/output.js";
 import { parseIntOption } from "../../core/parsers.js";
 import type { OmniFocusClient } from "../../core/types.js";
 
@@ -48,6 +54,11 @@ export function registerAddCommand(parent: Command, client: OmniFocusClient): vo
 					return;
 				}
 
+				if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+					for (const warning of data.warnings) {
+						outputWarning(`Partial apply warning: ${warning}`);
+					}
+				}
 				outputTaskDetail(data.task, format);
 			} catch (error) {
 				if (error instanceof BridgeError) {

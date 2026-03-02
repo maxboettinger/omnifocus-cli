@@ -87,6 +87,17 @@ function findExistingProject(doc, name, opts) {
     return { error: "Project not found: \"" + name + "\"" };
 }
 
+function findProjectExact(doc, name, opts) {
+    opts = opts || {};
+    if (!name) return null;
+    var projects = opts.folder ? opts.folder.flattenedProjects() : doc.flattenedProjects();
+    var target = name.toLowerCase();
+    for (var i = 0; i < projects.length; i++) {
+        if (projects[i].name().toLowerCase() === target) return projects[i];
+    }
+    return null;
+}
+
 function findTaskById(doc, id) {
     try { var t = doc.flattenedTasks.byId(id); if (t && t.name()) return t; } catch(e) {}
     return null;
@@ -243,6 +254,15 @@ function applyTaskProps(of, doc, task, p) {
     return changes;
 }
 
+function extractWarnings(changes) {
+    var warnings = [];
+    var rx = /(failed|not found|lookup failed|invalid)/i;
+    for (var i = 0; i < changes.length; i++) {
+        if (rx.test(changes[i])) warnings.push(changes[i]);
+    }
+    return warnings;
+}
+
 // ── Operations ──────────────────────────────────────────────────────────────
 
 var ops = {};
@@ -261,8 +281,9 @@ ops["task.create"] = function(of, doc, p) {
         var tp = { name: p.name }; if (p.note) tp.note = p.note;
         task = of.InboxTask(tp); doc.inboxTasks.push(task);
     }
-    applyTaskProps(of, doc, task, p);
-    return ok({ id: task.id(), name: task.name(), task: formatTask(task) });
+    var changes = applyTaskProps(of, doc, task, p);
+    var warnings = extractWarnings(changes);
+    return ok({ id: task.id(), name: task.name(), task: formatTask(task), changes: changes, warnings: warnings });
 };
 
 ops["task.get"] = function(of, doc, p) {
@@ -417,9 +438,17 @@ ops["task.subtask"] = function(of, doc, p) {
     }
     var tp = { name: p.name }; if (p.note) tp.note = p.note;
     var task = of.Task(tp); parentTask.tasks.push(task);
-    applyTaskProps(of, doc, task, p);
+    var changes = applyTaskProps(of, doc, task, p);
+    var warnings = extractWarnings(changes);
     var pp = null; try { var ppp = parentTask.containingProject(); if (ppp) pp = ppp.name(); } catch(e) {}
-    return ok({ id: task.id(), name: p.name, task: formatTask(task), parent: { id: parentTask.id(), name: parentTask.name(), project: pp || "Inbox" } });
+    return ok({
+        id: task.id(),
+        name: p.name,
+        task: formatTask(task),
+        parent: { id: parentTask.id(), name: parentTask.name(), project: pp || "Inbox" },
+        changes: changes,
+        warnings: warnings
+    });
 };
 
 ops["task.applyTag"] = function(of, doc, p) {
@@ -453,8 +482,13 @@ ops["task.applyTag"] = function(of, doc, p) {
 
 ops["project.create"] = function(of, doc, p) {
     if (!p.name) return fail("Project name required");
-    var existing = findExistingProject(doc, p.name);
-    if (existing.project) return fail("Project already exists: \"" + existing.project.name() + "\"", { existingId: existing.project.id() });
+    var existing = findProjectExact(doc, p.name);
+    if (existing) return fail("Project already exists: \"" + existing.name() + "\"", { existingId: existing.id() });
+    var normalizedStatus = null;
+    if (p.status) {
+        try { normalizedStatus = normalizeProjectStatus(p.status); }
+        catch(e) { return fail(e.message); }
+    }
     var targetFolder = null;
     if (p.folder) {
         var folders = doc.flattenedFolders(), lf = p.folder.toLowerCase();
@@ -468,7 +502,7 @@ ops["project.create"] = function(of, doc, p) {
     if (p.note) project.note = p.note;
     if (p.sequential) project.sequential = true;
     if (p.flag) project.flagged = true;
-    if (p.status) { try { project.status = normalizeProjectStatus(p.status); } catch(e) { return ok({ id: project.id(), name: project.name(), warning: e.message, project: formatProject(project) }); } }
+    if (normalizedStatus) project.status = normalizedStatus;
     return ok({ id: project.id(), name: project.name(), project: formatProject(project) });
 };
 
@@ -576,8 +610,8 @@ ops["project.rename"] = function(of, doc, p) {
         if (r.error) return fail(r.error, r.candidates ? { candidates: r.candidates } : {});
         project = r.project;
     }
-    var conflict = findExistingProject(doc, p.newName);
-    if (conflict.project && conflict.project.id() !== project.id()) return fail("A project named \"" + p.newName + "\" already exists");
+    var conflict = findProjectExact(doc, p.newName);
+    if (conflict && conflict.id() !== project.id()) return fail("A project named \"" + p.newName + "\" already exists");
     var oldName = project.name();
     project.name = p.newName;
     return ok({ id: project.id(), oldName: oldName, newName: p.newName, project: formatProject(project) });
@@ -710,14 +744,19 @@ ops["inbox.list"] = function(of, doc, p) {
 
 ops["inbox.add"] = function(of, doc, p) {
     if (!p.name) return fail("Task name required");
+    if (p.project) {
+        var lookup = findExistingProject(doc, p.project);
+        if (lookup.error) return fail(lookup.error, lookup.candidates ? { candidates: lookup.candidates } : {});
+    }
     var tp = { name: p.name }; if (p.note) tp.note = p.note;
     var task = of.InboxTask(tp); doc.inboxTasks.push(task);
-    applyTaskProps(of, doc, task, p);
+    var changes = applyTaskProps(of, doc, task, p);
+    var warnings = extractWarnings(changes);
     if (p.project) {
         var pl = findExistingProject(doc, p.project);
         if (pl.project) task.assignedContainer = pl.project;
     }
-    return ok({ id: task.id(), name: task.name(), task: formatTask(task) });
+    return ok({ id: task.id(), name: task.name(), task: formatTask(task), changes: changes, warnings: warnings });
 };
 
 ops["inbox.process"] = function(of, doc, p) {
@@ -1053,8 +1092,9 @@ ops["bulk.create"] = function(of, doc, p) {
             var task;
             if (targetProject) { task = of.Task(tp); targetProject.tasks.push(task); }
             else { task = of.InboxTask(tp); doc.inboxTasks.push(task); }
-            applyTaskProps(of, doc, task, input);
-            results.push({ ok: true, id: task.id(), name: task.name(), task: formatTask(task) });
+            var changes = applyTaskProps(of, doc, task, input);
+            var warnings = extractWarnings(changes);
+            results.push({ ok: true, id: task.id(), name: task.name(), task: formatTask(task), changes: changes, warnings: warnings });
         } catch(e) { results.push({ ok: false, error: e.message, name: input.name }); }
     }
     return ok(results);

@@ -1,7 +1,13 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
 import { BridgeError } from "../../core/errors.js";
-import { outputError, outputJson, outputSuccess, resolveFormat } from "../../core/output.js";
+import {
+	outputError,
+	outputJson,
+	outputSuccess,
+	outputWarning,
+	resolveFormat,
+} from "../../core/output.js";
 import { parseIntOption } from "../../core/parsers.js";
 import type { OmniFocusClient } from "../../core/types.js";
 
@@ -50,6 +56,11 @@ export function registerSubtaskCommand(parent: Command, client: OmniFocusClient)
 					return;
 				}
 
+				if (Array.isArray(data.warnings) && data.warnings.length > 0) {
+					for (const warning of data.warnings) {
+						outputWarning(`Partial apply warning: ${warning}`);
+					}
+				}
 				outputSuccess(`Created subtask: ${data.name}`);
 				outputSuccess(`  Parent: ${data.parent.name} [${data.parent.project}]`);
 			} catch (error) {

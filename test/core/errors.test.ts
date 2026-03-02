@@ -39,6 +39,16 @@ describe("BridgeError", () => {
 		expect(formatted).toContain("Project B");
 	});
 
+	test("format() renders structured candidates with project and id", () => {
+		const err = new BridgeError("Ambiguous", [
+			{ name: "Buy groceries", project: "Errands", id: "task-123" },
+		]);
+		const formatted = err.format();
+		expect(formatted).toContain("Buy groceries");
+		expect(formatted).toContain("[Errands]");
+		expect(formatted).toContain("(task-123)");
+	});
+
 	test("format() without candidates returns just the message", () => {
 		const err = new BridgeError("Task not found");
 		expect(err.format()).toBe("Task not found");

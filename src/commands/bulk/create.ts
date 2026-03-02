@@ -7,6 +7,7 @@ import {
 	outputError,
 	outputJson,
 	outputSuccess,
+	outputWarning,
 	red,
 	resolveFormat,
 } from "../../core/output.js";
@@ -76,6 +77,9 @@ export function registerBulkCreateCommand(parent: Command, client: OmniFocusClie
 				// Human-friendly output
 				const succeeded = results.filter((r) => r.ok);
 				const failed = results.filter((r) => !r.ok);
+				const partial = succeeded.filter(
+					(result) => Array.isArray(result.warnings) && result.warnings.length > 0,
+				);
 
 				outputSuccess(
 					`Bulk create completed: ${succeeded.length} succeeded, ${failed.length} failed`,
@@ -85,6 +89,11 @@ export function registerBulkCreateCommand(parent: Command, client: OmniFocusClie
 					console.log(green(`\n✓ Successfully created ${succeeded.length} tasks:`));
 					for (const result of succeeded) {
 						console.log(`  ${result.name} (${result.id})`);
+						if (result.warnings && result.warnings.length > 0) {
+							for (const warning of result.warnings) {
+								outputWarning(`  ${result.name}: ${warning}`);
+							}
+						}
 					}
 				}
 
@@ -96,9 +105,12 @@ export function registerBulkCreateCommand(parent: Command, client: OmniFocusClie
 				}
 
 				console.log(dim(`\nTotal: ${results.length} tasks processed`));
+				if (partial.length > 0) {
+					outputWarning(`${partial.length} task(s) were created with warnings`);
+				}
 
 				// Exit with error code if any failed
-				if (failed.length > 0) {
+				if (failed.length > 0 || partial.length > 0) {
 					process.exit(1);
 				}
 			} catch (error) {

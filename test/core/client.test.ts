@@ -35,4 +35,21 @@ describe("unwrapBridgeResponse", () => {
 			expect((e as BridgeError).candidates).toEqual(["Project A", "Project B"]);
 		}
 	});
+
+	test("BridgeError keeps structured candidates from response", () => {
+		const response: BridgeResponse = {
+			ok: false,
+			error: "Ambiguous",
+			candidates: [{ id: "task-1", name: "Buy groceries", project: "Errands" }],
+		};
+		try {
+			unwrapBridgeResponse(response);
+			expect.unreachable("should have thrown");
+		} catch (e) {
+			expect(e).toBeInstanceOf(BridgeError);
+			expect((e as BridgeError).candidates).toEqual([
+				{ id: "task-1", name: "Buy groceries", project: "Errands" },
+			]);
+		}
+	});
 });

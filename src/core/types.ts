@@ -84,6 +84,14 @@ export interface OFFolder {
 
 // ── Bridge protocol ─────────────────────────────────────────────────────────
 
+export interface BridgeCandidateDetail {
+	id?: string;
+	name: string;
+	project?: string;
+}
+
+export type BridgeCandidate = string | BridgeCandidateDetail;
+
 /** Every bridge command follows this shape. */
 export interface BridgeCommand {
 	op: string;
@@ -100,7 +108,7 @@ export interface BridgeSuccess<T = unknown> {
 export interface BridgeError {
 	ok: false;
 	error: string;
-	candidates?: string[];
+	candidates?: BridgeCandidate[];
 }
 
 export type BridgeResponse<T = unknown> = BridgeSuccess<T> | BridgeError;
@@ -397,6 +405,7 @@ export interface BulkResult {
 	name?: string;
 	error?: string;
 	changes?: string[];
+	warnings?: string[];
 	task?: OFTask;
 }
 
@@ -427,7 +436,9 @@ export interface OmniFocusClient {
 	// Tasks
 	createTask(
 		opts: TaskCreateOptions,
-	): Promise<BridgeResponse<{ id: string; name: string; task: OFTask }>>;
+	): Promise<
+		BridgeResponse<{ id: string; name: string; task: OFTask; changes?: string[]; warnings?: string[] }>
+	>;
 	getTask(query: string, opts?: { searchCompleted?: boolean }): Promise<BridgeResponse<OFTask>>;
 	updateTask(
 		opts: TaskUpdateOptions,
@@ -444,6 +455,8 @@ export interface OmniFocusClient {
 			name: string;
 			task: OFTask;
 			parent: { id: string; name: string; project: string };
+			changes?: string[];
+			warnings?: string[];
 		}>
 	>;
 	applyTag(
@@ -497,7 +510,9 @@ export interface OmniFocusClient {
 	listInbox(limit?: number): Promise<BridgeResponse<OFTask[]>>;
 	addInbox(
 		opts: TaskCreateOptions,
-	): Promise<BridgeResponse<{ id: string; name: string; task: OFTask }>>;
+	): Promise<
+		BridgeResponse<{ id: string; name: string; task: OFTask; changes?: string[]; warnings?: string[] }>
+	>;
 	processInbox(
 		opts: InboxProcessOptions,
 	): Promise<BridgeResponse<{ id: string; changes: string[]; task?: OFTask }>>;

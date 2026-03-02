@@ -1,3 +1,5 @@
+import type { BridgeCandidate } from "./types.js";
+
 /**
  * Error hierarchy for OmniFocus CLI.
  *
@@ -17,9 +19,9 @@ export class CLIError extends Error {
 
 /** The JXA bridge returned { ok: false }. */
 export class BridgeError extends CLIError {
-	readonly candidates?: string[];
+	readonly candidates?: BridgeCandidate[];
 
-	constructor(message: string, candidates?: string[]) {
+	constructor(message: string, candidates?: BridgeCandidate[]) {
 		super(message);
 		this.name = "BridgeError";
 		this.candidates = candidates;
@@ -31,7 +33,14 @@ export class BridgeError extends CLIError {
 		if (this.candidates && this.candidates.length > 0) {
 			msg += "\n\nDid you mean:";
 			for (const c of this.candidates) {
-				msg += `\n  - ${c}`;
+				if (typeof c === "string") {
+					msg += `\n  - ${c}`;
+					continue;
+				}
+				const parts = [c.name];
+				if (c.project) parts.push(`[${c.project}]`);
+				if (c.id) parts.push(`(${c.id})`);
+				msg += `\n  - ${parts.join(" ")}`;
 			}
 		}
 		return msg;
@@ -51,7 +60,7 @@ export class JXAExecutionError extends CLIError {
 
 /** Multiple entities matched a query — user must disambiguate. */
 export class AmbiguousMatchError extends BridgeError {
-	constructor(entity: string, query: string, candidates: string[]) {
+	constructor(entity: string, query: string, candidates: BridgeCandidate[]) {
 		super(
 			`Ambiguous: multiple ${entity}s match "${query}". Be more specific or use --id.`,
 			candidates,

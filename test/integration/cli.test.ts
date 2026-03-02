@@ -9,6 +9,7 @@
 import { describe, expect, mock, test } from "bun:test";
 import { Command } from "commander";
 import { registerFolderCommands } from "../../src/commands/folder/index.js";
+import { registerInboxCommands } from "../../src/commands/inbox/index.js";
 import { registerProjectCommands } from "../../src/commands/project/index.js";
 import { registerStatsCommand } from "../../src/commands/stats.js";
 import { registerTagCommands } from "../../src/commands/tag/index.js";
@@ -142,23 +143,29 @@ async function runCommand(
 	setup: (program: Command, client: OmniFocusClient) => void,
 	argv: string[],
 	client?: OmniFocusClient,
-): Promise<{ client: OmniFocusClient; stdout: string[] }> {
+): Promise<{ client: OmniFocusClient; stdout: string[]; stderr: string[] }> {
 	const c = client ?? createMockClient();
 	const program = new Command();
 	program.name("of").exitOverride();
 	setup(program, c);
 
 	const stdout: string[] = [];
+	const stderr: string[] = [];
 	const origLog = console.log;
+	const origErr = console.error;
 	console.log = (...args: unknown[]) => {
 		stdout.push(args.map(String).join(" "));
+	};
+	console.error = (...args: unknown[]) => {
+		stderr.push(args.map(String).join(" "));
 	};
 	try {
 		await program.parseAsync(argv, { from: "user" });
 	} finally {
 		console.log = origLog;
+		console.error = origErr;
 	}
-	return { client: c, stdout };
+	return { client: c, stdout, stderr };
 }
 
 // ── Task commands ───────────────────────────────────────────────────────────
@@ -240,7 +247,7 @@ describe("task commands", () => {
 		expect(client.getTask).toHaveBeenCalledTimes(1);
 	});
 
-	test("task update with --id calls updateTask", async () => {
+		test("task update with --id calls updateTask", async () => {
 		const { client } = await runCommand(registerTaskCommands, [
 			"task",
 			"update",
@@ -251,10 +258,39 @@ describe("task commands", () => {
 			"--json",
 		]);
 		expect(client.updateTask).toHaveBeenCalledTimes(1);
-		const call = (client.updateTask as ReturnType<typeof mock>).mock.calls[0] as [
-			Record<string, unknown>,
-		];
-		expect(call[0]).toMatchObject({ id: "abc123", due: "2026-04-01" });
+			const call = (client.updateTask as ReturnType<typeof mock>).mock.calls[0] as [
+				Record<string, unknown>,
+			];
+			expect(call[0]).toMatchObject({ id: "abc123", due: "2026-04-01" });
+		});
+
+	test("task add in human mode surfaces partial-apply warnings", async () => {
+		const originalIsTTY = process.stdout.isTTY;
+		Object.defineProperty(process.stdout, "isTTY", {
+			value: true,
+			configurable: true,
+		});
+
+		try {
+			const c = createMockClient();
+			c.createTask = mock(() =>
+				Promise.resolve(
+					successResponse({
+						id: MOCK_TASK.id,
+						name: MOCK_TASK.name,
+						task: MOCK_TASK,
+						warnings: ['tag failed (missing): Tag not found: "missing"'],
+					}),
+				),
+			);
+			const { stderr } = await runCommand(registerTaskCommands, ["task", "add", "Buy groceries"], c);
+			expect(stderr.some((line) => line.includes("Partial apply warning:"))).toBeTrue();
+		} finally {
+			Object.defineProperty(process.stdout, "isTTY", {
+				value: originalIsTTY,
+				configurable: true,
+			});
+		}
 	});
 });
 
@@ -291,7 +327,7 @@ describe("project commands", () => {
 
 	test("project delete requires --confirm", async () => {
 		const c = createMockClient();
-		// Without --confirm, deleteProject should be called with confirm: false
+		// With --confirm, deleteProject should be called.
 		await runCommand(
 			registerProjectCommands,
 			["project", "delete", "Old Project", "--confirm", "--json"],
@@ -336,6 +372,28 @@ describe("folder commands", () => {
 		];
 		expect(call[0]).toBe("Personal");
 		expect(call[1]).toMatchObject({ parent: "Life" });
+	});
+});
+
+// ── Inbox commands ──────────────────────────────────────────────────────────
+
+describe("inbox commands", () => {
+	test("inbox add in human mode does not print undefined", async () => {
+		const originalIsTTY = process.stdout.isTTY;
+		Object.defineProperty(process.stdout, "isTTY", {
+			value: true,
+			configurable: true,
+		});
+
+		try {
+			const { stdout } = await runCommand(registerInboxCommands, ["inbox", "add", "Quick note"]);
+			expect(stdout.some((line) => line.includes("undefined"))).toBeFalse();
+		} finally {
+			Object.defineProperty(process.stdout, "isTTY", {
+				value: originalIsTTY,
+				configurable: true,
+			});
+		}
 	});
 });
 

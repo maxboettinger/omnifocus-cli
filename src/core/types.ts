@@ -434,10 +434,14 @@ export interface CollectedTask {
  */
 export interface OmniFocusClient {
 	// Tasks
-	createTask(
-		opts: TaskCreateOptions,
-	): Promise<
-		BridgeResponse<{ id: string; name: string; task: OFTask; changes?: string[]; warnings?: string[] }>
+	createTask(opts: TaskCreateOptions): Promise<
+		BridgeResponse<{
+			id: string;
+			name: string;
+			task: OFTask;
+			changes?: string[];
+			warnings?: string[];
+		}>
 	>;
 	getTask(query: string, opts?: { searchCompleted?: boolean }): Promise<BridgeResponse<OFTask>>;
 	updateTask(
@@ -508,10 +512,14 @@ export interface OmniFocusClient {
 
 	// Inbox
 	listInbox(limit?: number): Promise<BridgeResponse<OFTask[]>>;
-	addInbox(
-		opts: TaskCreateOptions,
-	): Promise<
-		BridgeResponse<{ id: string; name: string; task: OFTask; changes?: string[]; warnings?: string[] }>
+	addInbox(opts: TaskCreateOptions): Promise<
+		BridgeResponse<{
+			id: string;
+			name: string;
+			task: OFTask;
+			changes?: string[];
+			warnings?: string[];
+		}>
 	>;
 	processInbox(
 		opts: InboxProcessOptions,

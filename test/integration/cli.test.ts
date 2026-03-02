@@ -247,7 +247,7 @@ describe("task commands", () => {
 		expect(client.getTask).toHaveBeenCalledTimes(1);
 	});
 
-		test("task update with --id calls updateTask", async () => {
+	test("task update with --id calls updateTask", async () => {
 		const { client } = await runCommand(registerTaskCommands, [
 			"task",
 			"update",
@@ -258,11 +258,11 @@ describe("task commands", () => {
 			"--json",
 		]);
 		expect(client.updateTask).toHaveBeenCalledTimes(1);
-			const call = (client.updateTask as ReturnType<typeof mock>).mock.calls[0] as [
-				Record<string, unknown>,
-			];
-			expect(call[0]).toMatchObject({ id: "abc123", due: "2026-04-01" });
-		});
+		const call = (client.updateTask as ReturnType<typeof mock>).mock.calls[0] as [
+			Record<string, unknown>,
+		];
+		expect(call[0]).toMatchObject({ id: "abc123", due: "2026-04-01" });
+	});
 
 	test("task add in human mode surfaces partial-apply warnings", async () => {
 		const originalIsTTY = process.stdout.isTTY;
@@ -283,7 +283,11 @@ describe("task commands", () => {
 					}),
 				),
 			);
-			const { stderr } = await runCommand(registerTaskCommands, ["task", "add", "Buy groceries"], c);
+			const { stderr } = await runCommand(
+				registerTaskCommands,
+				["task", "add", "Buy groceries"],
+				c,
+			);
 			expect(stderr.some((line) => line.includes("Partial apply warning:"))).toBeTrue();
 		} finally {
 			Object.defineProperty(process.stdout, "isTTY", {

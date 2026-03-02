@@ -1,0 +1,26 @@
+{
+  "name": "omnifocus-cli",
+  "version": "0.1.0",
+  "description": "Professional CLI for OmniFocus task management",
+  "type": "module",
+  "bin": {
+    "of": "./src/index.ts"
+  },
+  "scripts": {
+    "dev": "bun run src/index.ts",
+    "test": "bun test",
+    "check": "bun x biome check src/ test/",
+    "format": "bun x biome format --write src/ test/",
+    "lint": "bun x biome lint src/ test/",
+    "typecheck": "bun x tsc --noEmit",
+    "build": "bun build --compile src/index.ts --outfile of"
+  },
+  "dependencies": {
+    "commander": "^13.1.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "@types/bun": "latest",
+    "typescript": "^5.7.0"
+  }
+}

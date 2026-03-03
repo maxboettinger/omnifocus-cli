@@ -91,7 +91,8 @@ of folder list --search Work --count
 ```bash
 of inbox list --limit 10
 of inbox add "Quick thought"
-of inbox process --id <task-id> --project "Errands" --tag errand
+of inbox process <task-id> --project "Errands" --tag errand
+echo '[{"id":"id1","project":"Errands"},{"id":"id2","complete":true}]' | of inbox process-many
 ```
 
 ### Bulk Operations
@@ -140,6 +141,7 @@ of collect --days 14          # recently completed tasks
 | `inbox list` | List inbox tasks |
 | `inbox add` | Add a task to the inbox |
 | `inbox process` | Process an inbox task (move, tag, complete, delete) |
+| `inbox process-many` | Process inbox tasks from JSON (stdin) |
 | `bulk create` | Create tasks from JSON (stdin) |
 | `bulk update` | Update tasks from JSON (stdin) |
 | `bulk complete` | Complete tasks by ID (stdin) |

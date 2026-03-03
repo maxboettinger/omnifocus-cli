@@ -10,7 +10,7 @@ _of_completion() {
 	local project_verbs="add list show update rename delete"
 	local tag_verbs="add list rename delete tasks"
 	local folder_verbs="add list"
-	local inbox_verbs="list add process"
+	local inbox_verbs="list add process process-many"
 	local bulk_verbs="create update complete"
 
 	case "\${cword}" in
@@ -62,7 +62,7 @@ _of() {
 		'delete:Delete a tag' 'tasks:List tasks by tag'
 	)
 	folder_cmds=( 'add:Create a folder' 'list:List folders' )
-	inbox_cmds=( 'list:List inbox items' 'add:Add to inbox' 'process:Process inbox item' )
+	inbox_cmds=( 'list:List inbox items' 'add:Add to inbox' 'process:Process inbox item' 'process-many:Process many inbox items from stdin JSON' )
 	bulk_cmds=( 'create:Bulk create tasks' 'update:Bulk update tasks' 'complete:Bulk complete tasks' )
 
 	_arguments -C '1:noun:->noun' '2:verb:->verb' '*::args:->args'
@@ -134,6 +134,7 @@ complete -c of -n '__fish_seen_subcommand_from folder' -a list -d 'List folders'
 complete -c of -n '__fish_seen_subcommand_from inbox' -a list -d 'List inbox items'
 complete -c of -n '__fish_seen_subcommand_from inbox' -a add -d 'Add to inbox'
 complete -c of -n '__fish_seen_subcommand_from inbox' -a process -d 'Process inbox item'
+complete -c of -n '__fish_seen_subcommand_from inbox' -a process-many -d 'Process many inbox items from stdin JSON'
 
 # bulk subcommands
 complete -c of -n '__fish_seen_subcommand_from bulk' -a create -d 'Bulk create tasks'

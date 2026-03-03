@@ -56,6 +56,34 @@ of task complete "Buy groceries" --incomplete    # mark incomplete
 of task delete "Buy groceries" --confirm         # permanent deletion
 of task subtask "Buy milk" --parent "Buy groceries"
 of task tag "Buy groceries" --tag urgent
+of task notification list --id abc123
+of task notification add --id abc123 --kind absolute --at 2026-03-05T09:00 --repeat 1h
+of task notification update --id abc123 --notification-id notif-1 --repeat clear
+of task notification delete --id abc123 --notification-id notif-1
+of task notification clear --id abc123 --confirm
+```
+
+Duration flags (`--offset`, `--repeat`) accept `[-+]?((\\d+h)?(\\d+m)?(\\d+s)?)` such as `-1h`, `30m`, `1h30m`, `90s`, `+2h15m`.
+
+### Task Notifications
+
+```bash
+# list notifications on a task
+of task notification list --id abc123
+
+# add absolute reminder
+of task notification add --id abc123 --kind absolute --at 2026-03-05T09:00
+
+# add due-relative reminder (for example, 1 hour before due date)
+of task notification add --id abc123 --kind due-relative --offset -1h
+
+# update repeat interval or clear it
+of task notification update --id abc123 --notification-id notif-1 --repeat 2h
+of task notification update --id abc123 --notification-id notif-1 --repeat clear
+
+# delete one reminder / clear all reminders
+of task notification delete --id abc123 --notification-id notif-1
+of task notification clear --id abc123 --confirm
 ```
 
 ### Projects
@@ -123,6 +151,11 @@ of collect --days 14          # recently completed tasks
 | `task delete` | Permanently delete a task (requires `--confirm`) |
 | `task search` | Search tasks by name |
 | `task show` | Show task details |
+| `task notification list` | List notifications on a task |
+| `task notification add` | Add a notification to a task |
+| `task notification update` | Update an existing task notification |
+| `task notification delete` | Delete a task notification |
+| `task notification clear` | Clear all task notifications (requires `--confirm`) |
 | `task subtask` | Create a subtask |
 | `task tag` | Apply tags to a task |
 | `project add` | Create a new project |

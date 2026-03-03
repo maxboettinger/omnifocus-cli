@@ -23,6 +23,11 @@ import type {
 	TagListOptions,
 	TaskCreateOptions,
 	TaskListOptions,
+	TaskNotificationAddOptions,
+	TaskNotificationClearOptions,
+	TaskNotificationDeleteOptions,
+	TaskNotificationListOptions,
+	TaskNotificationUpdateOptions,
 	TaskUpdateOptions,
 } from "./types.js";
 
@@ -47,7 +52,10 @@ export function createClient(): OmniFocusClient {
 			return executeBridge(cmd("task.create", opts as unknown as Record<string, unknown>));
 		},
 
-		async getTask(query: string, opts?: { searchCompleted?: boolean }) {
+		async getTask(
+			query: string,
+			opts?: { searchCompleted?: boolean; includeNotifications?: boolean },
+		) {
 			return executeBridge(cmd("task.get", { query, ...opts }));
 		},
 
@@ -77,6 +85,36 @@ export function createClient(): OmniFocusClient {
 
 		async deleteTask(query: string, opts?: { id?: string; confirm?: boolean }) {
 			return executeBridge(cmd("task.delete", { query, ...opts }));
+		},
+
+		async listTaskNotifications(opts: TaskNotificationListOptions) {
+			return executeBridge(
+				cmd("task.notification.list", opts as unknown as Record<string, unknown>),
+			);
+		},
+
+		async addTaskNotification(opts: TaskNotificationAddOptions) {
+			return executeBridge(
+				cmd("task.notification.add", opts as unknown as Record<string, unknown>),
+			);
+		},
+
+		async updateTaskNotification(opts: TaskNotificationUpdateOptions) {
+			return executeBridge(
+				cmd("task.notification.update", opts as unknown as Record<string, unknown>),
+			);
+		},
+
+		async deleteTaskNotification(opts: TaskNotificationDeleteOptions) {
+			return executeBridge(
+				cmd("task.notification.delete", opts as unknown as Record<string, unknown>),
+			);
+		},
+
+		async clearTaskNotifications(opts: TaskNotificationClearOptions) {
+			return executeBridge(
+				cmd("task.notification.clear", opts as unknown as Record<string, unknown>),
+			);
 		},
 
 		// ── Projects ──────────────────────────────────────────────────

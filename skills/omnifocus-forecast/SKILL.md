@@ -18,7 +18,7 @@ Use this skill for read-heavy operational views and execution support.
 1. Start with `of forecast --json` for current execution state.
 2. If user requests trend/progress, run `of review --json`.
 3. If user asks for high-level health, run `of stats --json`.
-4. Convert findings into concrete follow-up actions using `of task update`, `of task complete`, or `of inbox process`.
+4. Convert findings into concrete follow-up actions using `of task update`, `of task complete`, `of task notification ...`, or `of inbox process`.
 
 ## Practical Defaults
 

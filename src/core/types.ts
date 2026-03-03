@@ -31,7 +31,20 @@ export interface OFTask {
 	parentTask: { id: string; name: string } | null;
 	tags: string[];
 	repetitionRule: { rule: string; method: string | null } | null;
+	notifications?: OFTaskNotification[];
 	childCount: number;
+}
+
+export interface OFTaskNotification {
+	id: string;
+	kind: "absolute" | "due-relative" | "unknown";
+	absoluteFireDate: string | null;
+	relativeFireOffsetSeconds: number | null;
+	repeatIntervalSeconds: number | null;
+	nextFireDate: string | null;
+	initialFireDate: string | null;
+	isSnoozed: boolean | null;
+	usesFloatingTimeZone: boolean | null;
 }
 
 // ── Project ─────────────────────────────────────────────────────────────────
@@ -169,6 +182,41 @@ export interface SubtaskCreateOptions {
 	repeatMethod?: string;
 }
 
+export interface TaskNotificationListOptions {
+	query?: string;
+	id?: string;
+}
+
+export interface TaskNotificationAddOptions {
+	query?: string;
+	id?: string;
+	kind: "absolute" | "due-relative";
+	at?: string;
+	offsetSeconds?: number;
+	repeatSeconds?: number;
+}
+
+export interface TaskNotificationUpdateOptions {
+	query?: string;
+	id?: string;
+	notificationId: string;
+	at?: string;
+	offsetSeconds?: number;
+	repeatSeconds?: number | "clear";
+}
+
+export interface TaskNotificationDeleteOptions {
+	query?: string;
+	id?: string;
+	notificationId: string;
+}
+
+export interface TaskNotificationClearOptions {
+	query?: string;
+	id?: string;
+	confirm?: boolean;
+}
+
 // ── Project mutation options ────────────────────────────────────────────────
 
 export interface ProjectCreateOptions {
@@ -226,6 +274,7 @@ export type TaskFilter = "inbox" | "available" | "flagged" | "due-soon" | "overd
 export interface TaskListOptions {
 	filter?: TaskFilter;
 	limit?: number;
+	includeNotifications?: boolean;
 }
 
 export interface ProjectListOptions {
@@ -442,7 +491,10 @@ export interface OmniFocusClient {
 			warnings?: string[];
 		}>
 	>;
-	getTask(query: string, opts?: { searchCompleted?: boolean }): Promise<BridgeResponse<OFTask>>;
+	getTask(
+		query: string,
+		opts?: { searchCompleted?: boolean; includeNotifications?: boolean },
+	): Promise<BridgeResponse<OFTask>>;
 	updateTask(
 		opts: TaskUpdateOptions,
 	): Promise<BridgeResponse<{ id: string; changes: string[]; task: OFTask }>>;
@@ -471,6 +523,43 @@ export interface OmniFocusClient {
 		query: string,
 		opts?: { id?: string; confirm?: boolean },
 	): Promise<BridgeResponse<{ id: string; name: string; action: string }>>;
+	listTaskNotifications(
+		opts: TaskNotificationListOptions,
+	): Promise<
+		BridgeResponse<{ taskId: string; taskName: string; notifications: OFTaskNotification[] }>
+	>;
+	addTaskNotification(opts: TaskNotificationAddOptions): Promise<
+		BridgeResponse<{
+			taskId: string;
+			taskName: string;
+			notification: OFTaskNotification;
+			notifications: OFTaskNotification[];
+		}>
+	>;
+	updateTaskNotification(opts: TaskNotificationUpdateOptions): Promise<
+		BridgeResponse<{
+			taskId: string;
+			taskName: string;
+			notification: OFTaskNotification;
+			notifications: OFTaskNotification[];
+		}>
+	>;
+	deleteTaskNotification(opts: TaskNotificationDeleteOptions): Promise<
+		BridgeResponse<{
+			taskId: string;
+			taskName: string;
+			deletedId: string;
+			notifications: OFTaskNotification[];
+		}>
+	>;
+	clearTaskNotifications(opts: TaskNotificationClearOptions): Promise<
+		BridgeResponse<{
+			taskId: string;
+			taskName: string;
+			cleared: number;
+			notifications: OFTaskNotification[];
+		}>
+	>;
 
 	// Projects
 	createProject(

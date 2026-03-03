@@ -121,6 +121,23 @@ export function formatTaskDetail(task: OFTask): string {
 	if (task.flagged) lines.push(`${dim("Flagged:")} ${yellow("yes")}`);
 	if (task.estimatedMinutes) lines.push(`${dim("Estimate:")} ${task.estimatedMinutes} min`);
 	if (task.tags.length > 0) lines.push(`${dim("Tags:")} ${task.tags.join(", ")}`);
+	if (Array.isArray(task.notifications)) {
+		lines.push(`${dim("Notifications:")} ${task.notifications.length}`);
+		for (const notification of task.notifications) {
+			const parts: string[] = [];
+			parts.push(formatNotificationKind(notification.kind));
+			if (notification.absoluteFireDate) {
+				parts.push(`at ${formatDateLong(notification.absoluteFireDate)}`);
+			}
+			if (notification.relativeFireOffsetSeconds != null) {
+				parts.push(`offset ${formatDurationSeconds(notification.relativeFireOffsetSeconds)}`);
+			}
+			if (notification.repeatIntervalSeconds != null) {
+				parts.push(`repeat ${formatDurationSeconds(notification.repeatIntervalSeconds)}`);
+			}
+			lines.push(`  - ${notification.id}: ${parts.join(", ")}`);
+		}
+	}
 	if (task.repetitionRule)
 		lines.push(`${dim("Repeat:")} ${task.repetitionRule.rule} (${task.repetitionRule.method})`);
 	if (task.sequential) lines.push(`${dim("Sequential:")} yes`);
@@ -298,6 +315,27 @@ function formatDateLong(iso: string): string {
 		hour: "2-digit",
 		minute: "2-digit",
 	});
+}
+
+function formatNotificationKind(kind: "absolute" | "due-relative" | "unknown"): string {
+	if (kind === "absolute") return "absolute";
+	if (kind === "due-relative") return "due-relative";
+	return "unknown";
+}
+
+function formatDurationSeconds(totalSeconds: number): string {
+	const sign = totalSeconds < 0 ? "-" : totalSeconds > 0 ? "+" : "";
+	let remaining = Math.abs(totalSeconds);
+	const hours = Math.floor(remaining / 3600);
+	remaining -= hours * 3600;
+	const minutes = Math.floor(remaining / 60);
+	remaining -= minutes * 60;
+	const seconds = remaining;
+	const parts: string[] = [];
+	if (hours > 0) parts.push(`${hours}h`);
+	if (minutes > 0) parts.push(`${minutes}m`);
+	if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
+	return `${sign}${parts.join("")}`;
 }
 
 // Re-export color helpers for use in specialized formatters (e.g., forecast)

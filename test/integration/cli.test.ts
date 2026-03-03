@@ -10,6 +10,7 @@ import { describe, expect, mock, test } from "bun:test";
 import { Readable } from "node:stream";
 import { Command } from "commander";
 import { registerCollectCommand } from "../../src/commands/collect.js";
+import { registerCompletionCommand } from "../../src/commands/completion.js";
 import { registerFolderCommands } from "../../src/commands/folder/index.js";
 import { registerInboxCommands } from "../../src/commands/inbox/index.js";
 import { registerProjectCommands } from "../../src/commands/project/index.js";
@@ -27,6 +28,17 @@ import {
 // ── Mock client factory ─────────────────────────────────────────────────────
 
 function createMockClient(): OmniFocusClient {
+	const mockNotification = (MOCK_TASK.notifications ?? [])[0] ?? {
+		id: "notif-1",
+		kind: "absolute" as const,
+		absoluteFireDate: "2026-03-04T09:00:00.000Z",
+		relativeFireOffsetSeconds: null,
+		repeatIntervalSeconds: null,
+		nextFireDate: null,
+		initialFireDate: null,
+		isSnoozed: false,
+		usesFloatingTimeZone: false,
+	};
 	return {
 		createTask: mock(() =>
 			Promise.resolve(successResponse({ id: MOCK_TASK.id, name: MOCK_TASK.name, task: MOCK_TASK })),
@@ -72,6 +84,55 @@ function createMockClient(): OmniFocusClient {
 		deleteTask: mock(() =>
 			Promise.resolve(
 				successResponse({ id: MOCK_TASK.id, name: MOCK_TASK.name, action: "deleted" }),
+			),
+		),
+		listTaskNotifications: mock(() =>
+			Promise.resolve(
+				successResponse({
+					taskId: MOCK_TASK.id,
+					taskName: MOCK_TASK.name,
+					notifications: MOCK_TASK.notifications ?? [],
+				}),
+			),
+		),
+		addTaskNotification: mock(() =>
+			Promise.resolve(
+				successResponse({
+					taskId: MOCK_TASK.id,
+					taskName: MOCK_TASK.name,
+					notification: mockNotification,
+					notifications: MOCK_TASK.notifications ?? [],
+				}),
+			),
+		),
+		updateTaskNotification: mock(() =>
+			Promise.resolve(
+				successResponse({
+					taskId: MOCK_TASK.id,
+					taskName: MOCK_TASK.name,
+					notification: mockNotification,
+					notifications: MOCK_TASK.notifications ?? [],
+				}),
+			),
+		),
+		deleteTaskNotification: mock(() =>
+			Promise.resolve(
+				successResponse({
+					taskId: MOCK_TASK.id,
+					taskName: MOCK_TASK.name,
+					deletedId: "notif-1",
+					notifications: [],
+				}),
+			),
+		),
+		clearTaskNotifications: mock(() =>
+			Promise.resolve(
+				successResponse({
+					taskId: MOCK_TASK.id,
+					taskName: MOCK_TASK.name,
+					cleared: 1,
+					notifications: [],
+				}),
 			),
 		),
 
@@ -238,7 +299,7 @@ describe("task commands", () => {
 		const call = (client.listTasks as ReturnType<typeof mock>).mock.calls[0] as [
 			Record<string, unknown>,
 		];
-		expect(call[0]).toMatchObject({ filter: "flagged", limit: 10 });
+		expect(call[0]).toMatchObject({ filter: "flagged", limit: 10, includeNotifications: true });
 	});
 
 	test("task complete calls completeTask", async () => {
@@ -274,6 +335,185 @@ describe("task commands", () => {
 			"--json",
 		]);
 		expect(client.getTask).toHaveBeenCalledTimes(1);
+		const call = (client.getTask as ReturnType<typeof mock>).mock.calls[0] as [
+			string,
+			Record<string, unknown>,
+		];
+		expect(call[1]).toMatchObject({ includeNotifications: true });
+	});
+
+	test("task notification list calls listTaskNotifications", async () => {
+		const { client } = await runCommand(registerTaskCommands, [
+			"task",
+			"notification",
+			"list",
+			"--id",
+			"task-abc123",
+			"--json",
+		]);
+		expect(client.listTaskNotifications).toHaveBeenCalledTimes(1);
+		const call = (client.listTaskNotifications as ReturnType<typeof mock>).mock.calls[0] as [
+			Record<string, unknown>,
+		];
+		expect(call[0]).toMatchObject({ id: "task-abc123" });
+	});
+
+	test("task notification add calls addTaskNotification", async () => {
+		const { client } = await runCommand(registerTaskCommands, [
+			"task",
+			"notification",
+			"add",
+			"--id",
+			"task-abc123",
+			"--kind",
+			"absolute",
+			"--at",
+			"2026-03-05T09:00",
+			"--repeat",
+			"1h",
+			"--json",
+		]);
+		expect(client.addTaskNotification).toHaveBeenCalledTimes(1);
+		const call = (client.addTaskNotification as ReturnType<typeof mock>).mock.calls[0] as [
+			Record<string, unknown>,
+		];
+		expect(call[0]).toMatchObject({
+			id: "task-abc123",
+			kind: "absolute",
+			at: "2026-03-05T09:00",
+			repeatSeconds: 3600,
+		});
+	});
+
+	test("task notification update calls updateTaskNotification", async () => {
+		const { client } = await runCommand(registerTaskCommands, [
+			"task",
+			"notification",
+			"update",
+			"--id",
+			"task-abc123",
+			"--notification-id",
+			"notif-1",
+			"--repeat",
+			"clear",
+			"--json",
+		]);
+		expect(client.updateTaskNotification).toHaveBeenCalledTimes(1);
+		const call = (client.updateTaskNotification as ReturnType<typeof mock>).mock.calls[0] as [
+			Record<string, unknown>,
+		];
+		expect(call[0]).toMatchObject({
+			id: "task-abc123",
+			notificationId: "notif-1",
+			repeatSeconds: "clear",
+		});
+	});
+
+	test("task notification delete calls deleteTaskNotification", async () => {
+		const { client } = await runCommand(registerTaskCommands, [
+			"task",
+			"notification",
+			"delete",
+			"--id",
+			"task-abc123",
+			"--notification-id",
+			"notif-1",
+			"--json",
+		]);
+		expect(client.deleteTaskNotification).toHaveBeenCalledTimes(1);
+		const call = (client.deleteTaskNotification as ReturnType<typeof mock>).mock.calls[0] as [
+			Record<string, unknown>,
+		];
+		expect(call[0]).toMatchObject({
+			id: "task-abc123",
+			notificationId: "notif-1",
+		});
+	});
+
+	test("task notification clear calls clearTaskNotifications", async () => {
+		const { client } = await runCommand(registerTaskCommands, [
+			"task",
+			"notification",
+			"clear",
+			"--id",
+			"task-abc123",
+			"--confirm",
+			"--json",
+		]);
+		expect(client.clearTaskNotifications).toHaveBeenCalledTimes(1);
+		const call = (client.clearTaskNotifications as ReturnType<typeof mock>).mock.calls[0] as [
+			Record<string, unknown>,
+		];
+		expect(call[0]).toMatchObject({ id: "task-abc123", confirm: true });
+	});
+
+	test("task notification add validates kind-specific required fields", async () => {
+		const c = createMockClient();
+		const origExit = process.exit;
+		let exitCode: number | undefined;
+		process.exit = ((code?: number) => {
+			exitCode = code;
+		}) as never;
+		try {
+			await runCommand(
+				registerTaskCommands,
+				["task", "notification", "add", "--kind", "absolute", "--json"],
+				c,
+			);
+			expect(c.addTaskNotification).not.toHaveBeenCalled();
+			expect(exitCode).toBe(1);
+		} finally {
+			process.exit = origExit;
+		}
+	});
+
+	test("task notification clear requires --confirm", async () => {
+		const c = createMockClient();
+		const origExit = process.exit;
+		let exitCode: number | undefined;
+		process.exit = ((code?: number) => {
+			exitCode = code;
+		}) as never;
+		try {
+			await runCommand(
+				registerTaskCommands,
+				["task", "notification", "clear", "--id", "task-abc123", "--json"],
+				c,
+			);
+			expect(c.clearTaskNotifications).not.toHaveBeenCalled();
+			expect(exitCode).toBe(1);
+		} finally {
+			process.exit = origExit;
+		}
+	});
+
+	test("task notification update requires at least one mutation flag", async () => {
+		const c = createMockClient();
+		const origExit = process.exit;
+		let exitCode: number | undefined;
+		process.exit = ((code?: number) => {
+			exitCode = code;
+		}) as never;
+		try {
+			await runCommand(
+				registerTaskCommands,
+				[
+					"task",
+					"notification",
+					"update",
+					"--id",
+					"task-abc123",
+					"--notification-id",
+					"notif-1",
+					"--json",
+				],
+				c,
+			);
+			expect(c.updateTaskNotification).not.toHaveBeenCalled();
+			expect(exitCode).toBe(1);
+		} finally {
+			process.exit = origExit;
+		}
 	});
 
 	test("task update with --id calls updateTask", async () => {
@@ -493,6 +733,24 @@ describe("collect command", () => {
 			number | undefined,
 		];
 		expect(call[0]).toBe(14);
+	});
+});
+
+// ── Completion command ──────────────────────────────────────────────────────
+
+describe("completion command", () => {
+	test("fish completion gates notification verbs on exact task notification path", async () => {
+		const { stdout } = await runCommand(
+			(program: Command, _client: OmniFocusClient) => registerCompletionCommand(program),
+			["completion", "fish"],
+		);
+		const script = stdout.join("\n");
+		expect(script).toContain("function __of_seen_task_notification");
+		expect(script).toContain("test \"$cmd[2]\" = \"task\"");
+		expect(script).toContain("test \"$cmd[3]\" = \"notification\"");
+		expect(script).toContain(
+			"complete -c of -n '__of_seen_task_notification' -a list -d 'List task notifications'",
+		);
 	});
 });
 

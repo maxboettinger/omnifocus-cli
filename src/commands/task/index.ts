@@ -4,6 +4,7 @@ import { registerAddCommand } from "./add.js";
 import { registerCompleteCommand } from "./complete.js";
 import { registerDeleteCommand } from "./delete.js";
 import { registerListCommand } from "./list.js";
+import { registerNotificationCommands } from "./notification/index.js";
 import { registerSearchCommand } from "./search.js";
 import { registerShowCommand } from "./show.js";
 import { registerSubtaskCommand } from "./subtask.js";
@@ -20,6 +21,7 @@ export function registerTaskCommands(program: Command, client: OmniFocusClient):
 	registerDeleteCommand(cmd, client);
 	registerSearchCommand(cmd, client);
 	registerShowCommand(cmd, client);
+	registerNotificationCommands(cmd, client);
 	registerSubtaskCommand(cmd, client);
 	registerTagCommand(cmd, client);
 }

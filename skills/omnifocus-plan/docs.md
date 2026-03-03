@@ -10,7 +10,8 @@ Typical sequence:
 1. `of forecast --json`
 2. `of task list ... --json`
 3. `of task update --id ...` for estimate/schedule adjustments
-4. `of forecast --json` to validate
+4. `of task notification add|update --id ... --json` for reminder adjustments
+5. `of forecast --json` to validate
 
 ## Architecture Alignment
 

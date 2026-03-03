@@ -40,6 +40,7 @@ Recommended categories:
 - `due`: external commitment date
 - `defer`: earliest start date (hidden until then)
 - `planned`: intended execution date
+- `notification`: reminder timing (absolute datetime or due-relative offset)
 
 Set only what is known. Avoid filling all three fields by default.
 
@@ -56,5 +57,6 @@ Rules of thumb:
 
 - Add/capture: `of inbox add` or `of task add`
 - Reclassify metadata: `of task update` or `of inbox process`
+- Manage reminders: `of task notification list|add|update|delete|clear`
 - Decompose: `of task subtask`
 - Filter by tags/priorities: `of task list`, `of task search`, `of tag tasks`

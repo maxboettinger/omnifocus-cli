@@ -23,6 +23,7 @@ export function registerListCommand(parent: Command, client: OmniFocusClient): v
 				const response = await client.listTasks({
 					filter: opts.filter as TaskFilter,
 					limit: opts.limit as number,
+					includeNotifications: format === "json",
 				});
 
 				const tasks = unwrapBridgeResponse(response);

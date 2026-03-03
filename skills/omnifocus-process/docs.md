@@ -9,6 +9,7 @@ Inbox triage workflow skill for deterministic batch processing.
 Primary commands:
 - `of inbox list`
 - `of inbox process`
+- `of task notification ...` (optional follow-up when reminders are needed)
 
 ## Architecture Alignment
 

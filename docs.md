@@ -35,7 +35,7 @@ Noun-verb pattern: `of <noun> <verb> [args] [options]`
 
 | Command Group | Verbs | Example |
 |---------------|-------|---------|
-| `task` | add, list, update, complete, delete, search, show, subtask, tag | `of task add "Buy milk" --due 2026-03-05 --flag` |
+| `task` | add, list, update, complete, delete, search, show, notification, subtask, tag | `of task add "Buy milk" --due 2026-03-05 --flag` |
 | `project` | add, list, show, update, rename, delete | `of project list --status active` |
 | `tag` | add, list, rename, delete, tasks | `of tag tasks "errand" --json` |
 | `folder` | add, list | `of folder add "Personal" --parent "Life"` |
@@ -54,7 +54,7 @@ All commands support `--json` for machine-readable output (globally or per-comma
 src/
 ├── index.ts                    # Entry: creates program, registers commands
 ├── commands/                   # CLI layer (thin: parse → service → format)
-│   ├── task/                   # add, list, update, complete, search, show, subtask, tag
+│   ├── task/                   # add, list, update, complete, search, show, notification/*, subtask, tag
 │   ├── project/                # add, list, show, update, rename, delete
 │   ├── tag/                    # add, list, rename, delete, tasks
 │   ├── folder/                 # add, list
@@ -86,11 +86,12 @@ test/
 
 ### Core Types
 
-- `OFTask`, `OFProject`, `OFTag`, `OFFolder` — Domain entities
+- `OFTask`, `OFTaskNotification`, `OFProject`, `OFTag`, `OFFolder` — Domain entities
 - `BridgeCommand` — `{ op: string; params: Record<string, unknown> }` sent to JXA
 - `BridgeResponse<T>` — `{ ok: true; data: T } | { ok: false; error: string }`
 - `OmniFocusClient` — Interface with all operations, implemented by `createClient()`
 - `TaskFilter` — `"inbox" | "available" | "flagged" | "due-soon" | "overdue" | "all"`
+- `TaskNotification*Options` — typed options for notification CRUD command surface
 
 ### JXA Bridge Protocol
 
@@ -101,7 +102,7 @@ Input:  { "op": "task.create", "params": { "name": "Buy groceries", "due": "2026
 Output: { "ok": true, "data": { "id": "...", "name": "Buy groceries", "task": { ... } } }
 ```
 
-Operations: `task.create`, `task.get`, `task.update`, `task.complete`, `task.delete`, `task.list`, `task.search`, `task.subtask`, `task.applyTag`, `project.create`, `project.get`, `project.list`, `project.update`, `project.rename`, `project.delete`, `tag.create`, `tag.list`, `tag.rename`, `tag.delete`, `tag.tasks`, `folder.create`, `folder.list`, `inbox.list`, `inbox.add`, `inbox.process`, `bulk.create`, `bulk.update`, `bulk.complete`, `forecast`, `review`, `stats`, `collect.completed`
+Operations: `task.create`, `task.get`, `task.update`, `task.complete`, `task.delete`, `task.list`, `task.search`, `task.subtask`, `task.applyTag`, `task.notification.list`, `task.notification.add`, `task.notification.update`, `task.notification.delete`, `task.notification.clear`, `project.create`, `project.get`, `project.list`, `project.update`, `project.rename`, `project.delete`, `tag.create`, `tag.list`, `tag.rename`, `tag.delete`, `tag.tasks`, `folder.create`, `folder.list`, `inbox.list`, `inbox.add`, `inbox.process`, `bulk.create`, `bulk.update`, `bulk.complete`, `forecast`, `review`, `stats`, `collect.completed`
 
 ### Error Hierarchy
 
@@ -124,6 +125,8 @@ Operations: `task.create`, `task.get`, `task.update`, `task.complete`, `task.del
 **Task lookup cascade:** Tries ID first (fast path via `flattenedTasks.byId`), then exact name, then substring. On ambiguity, returns up to 5 candidates with IDs for disambiguation.
 
 **All tag/project references use strict lookup.** Never auto-creates — returns `{ error, candidates? }` on failure. Tag creation only via `of tag add`, project creation only via `of project add`.
+
+**Task notifications use Omni Automation via the bridge.** Notification CRUD is implemented through OmniFocus `evaluate javascript` calls (`Task.Notification`) behind bridge ops. `task show` always includes notifications; `task list` includes them only for JSON output.
 
 ### Development
 

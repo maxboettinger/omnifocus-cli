@@ -33,6 +33,7 @@ This skill is the orchestration layer. It decides which specialized skill to loa
 ## Command Map
 
 - Tasks: `of task ...`
+- Task notifications: `of task notification list|add|update|delete|clear ...`
 - Inbox: `of inbox ...`
 - Projects: `of project ...`
 - Tags: `of tag ...`

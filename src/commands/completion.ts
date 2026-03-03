@@ -6,7 +6,8 @@ _of_completion() {
 	_init_completion || return
 
 	local nouns="task project tag folder inbox bulk forecast review stats completion"
-	local task_verbs="add list update complete search show subtask tag"
+	local task_verbs="add list update complete search show subtask tag notification"
+	local task_notification_verbs="list add update delete clear"
 	local project_verbs="add list show update rename delete"
 	local tag_verbs="add list rename delete tasks"
 	local folder_verbs="add list"
@@ -24,6 +25,11 @@ _of_completion() {
 				inbox)   COMPREPLY=( $(compgen -W "\${inbox_verbs}" -- "\${cur}") ) ;;
 				bulk)    COMPREPLY=( $(compgen -W "\${bulk_verbs}" -- "\${cur}") ) ;;
 			esac
+			;;
+		3)
+			if [[ "\${words[1]}" == "task" && "\${words[2]}" == "notification" ]]; then
+				COMPREPLY=( $(compgen -W "\${task_notification_verbs}" -- "\${cur}") )
+			fi
 			;;
 	esac
 }
@@ -47,11 +53,19 @@ _of() {
 		'completion:Output shell completions'
 	)
 
-	local -a task_cmds project_cmds tag_cmds folder_cmds inbox_cmds bulk_cmds
+	local -a task_cmds notification_cmds project_cmds tag_cmds folder_cmds inbox_cmds bulk_cmds
 	task_cmds=(
 		'add:Create a task' 'list:List tasks' 'update:Update a task'
 		'complete:Complete a task' 'search:Search tasks' 'show:Show task detail'
 		'subtask:Add a subtask' 'tag:Apply tags to a task'
+		'notification:Manage task notifications'
+	)
+	notification_cmds=(
+		'list:List task notifications'
+		'add:Add a task notification'
+		'update:Update a task notification'
+		'delete:Delete a task notification'
+		'clear:Clear all task notifications'
 	)
 	project_cmds=(
 		'add:Create a project' 'list:List projects' 'show:Show project detail'
@@ -79,6 +93,11 @@ _of() {
 				bulk)    _describe 'subcommand' bulk_cmds ;;
 			esac
 			;;
+		args)
+			if [[ "\$words[2]" == "task" && "\$words[3]" == "notification" ]]; then
+				_describe 'notification subcommand' notification_cmds
+			fi
+			;;
 	esac
 }
 
@@ -88,6 +107,12 @@ const FISH_COMPLETION = `# fish completion for of (omnifocus-cli)
 
 # Disable file completions
 complete -c of -f
+
+# Detect exact nested notification context: of task notification <verb>
+function __of_seen_task_notification
+    set -l cmd (commandline -opc)
+    test (count $cmd) -ge 3; and test "$cmd[2]" = "task"; and test "$cmd[3]" = "notification"
+end
 
 # Top-level commands
 complete -c of -n __fish_use_subcommand -a task -d 'Manage tasks'
@@ -110,6 +135,12 @@ complete -c of -n '__fish_seen_subcommand_from task' -a search -d 'Search tasks'
 complete -c of -n '__fish_seen_subcommand_from task' -a show -d 'Show task detail'
 complete -c of -n '__fish_seen_subcommand_from task' -a subtask -d 'Add a subtask'
 complete -c of -n '__fish_seen_subcommand_from task' -a tag -d 'Apply tags to a task'
+complete -c of -n '__fish_seen_subcommand_from task' -a notification -d 'Manage task notifications'
+complete -c of -n '__of_seen_task_notification' -a list -d 'List task notifications'
+complete -c of -n '__of_seen_task_notification' -a add -d 'Add task notification'
+complete -c of -n '__of_seen_task_notification' -a update -d 'Update task notification'
+complete -c of -n '__of_seen_task_notification' -a delete -d 'Delete task notification'
+complete -c of -n '__of_seen_task_notification' -a clear -d 'Clear task notifications'
 
 # project subcommands
 complete -c of -n '__fish_seen_subcommand_from project' -a add -d 'Create a project'

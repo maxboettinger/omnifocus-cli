@@ -30,6 +30,7 @@ Use this skill when the goal is to process existing inbox items, not create new 
 - Complete: `of inbox process <id> --complete --json`
 - Delete: `of inbox process <id> --delete --json`
 - Add schedule: `of inbox process <id> --due YYYY-MM-DD --planned YYYY-MM-DD --json`
+- Add reminder after project placement: `of task notification add --id <task-id> --kind absolute --at YYYY-MM-DDTHH:MM --json`
 
 ## Batch Discipline
 

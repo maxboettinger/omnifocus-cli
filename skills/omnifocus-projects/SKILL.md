@@ -31,3 +31,4 @@ Use this skill for project namespace management and folder organization.
 
 - Status normalization is handled by the CLI bridge; pass only the supported values shown above.
 - Project names are not guaranteed unique in large systems. ID-based updates are preferred for reliability.
+- Project workflows that require reminders should mutate task notifications separately via `of task notification ...`.

@@ -18,7 +18,7 @@ export function registerShowCommand(parent: Command, client: OmniFocusClient): v
 				// Use either the query argument or build query from id
 				const searchQuery = query || (opts.id as string);
 
-				const response = await client.getTask(searchQuery);
+				const response = await client.getTask(searchQuery, { includeNotifications: true });
 
 				const task = unwrapBridgeResponse(response);
 				outputTaskDetail(task, format);

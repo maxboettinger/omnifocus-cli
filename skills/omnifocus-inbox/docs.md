@@ -10,6 +10,7 @@ Primary commands:
 - `of inbox add`
 - `of task add --project ...` (when direct project placement is explicit)
 - `of task subtask` (for decomposition)
+- `of task notification ...` (when reminder timing must be attached post-capture)
 
 ## Architecture Alignment
 

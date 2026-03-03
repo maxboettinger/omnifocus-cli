@@ -17,6 +17,12 @@ Use this skill for all task-level work.
 - Complete/uncomplete: `of task complete [query] [--id <id>] [--incomplete]`
 - Add subtask: `of task subtask <name> --parent <query> | --parent-id <id> [metadata flags]`
 - Apply tags: `of task tag <query> <tags...> [--id <id>]`
+- Notifications:
+  - `of task notification list [query] [--id <id>]`
+  - `of task notification add [query] [--id <id>] --kind absolute|due-relative [--at <date>] [--offset <duration>] [--repeat <duration>]`
+  - `of task notification update [query] [--id <id>] --notification-id <id> [--at <date>] [--offset <duration>] [--repeat <duration|clear>]`
+  - `of task notification delete [query] [--id <id>] --notification-id <id>`
+  - `of task notification clear [query] [--id <id>] --confirm`
 
 ## Inbox Commands
 
@@ -48,3 +54,4 @@ Required JSON payloads:
 
 - Do not assume projects or tags exist. If assignment fails, discover via `of project list` or `of tag list` first.
 - For inbox processing, use `--dry-run` when applying many field changes at once.
+- Duration syntax for notification offsets/repeats: `-1h`, `30m`, `1h30m`, `90s`, `+2h15m`.

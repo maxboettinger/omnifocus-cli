@@ -29,3 +29,4 @@ Use task/inbox commands for assignment:
 1. Discover exact tag names first (`of tag list --search ... --json`).
 2. Apply or mutate only after exact match is known.
 3. For delete operations, run without `--confirm` first when you need impact preview.
+4. If a tag workflow also requires reminders, follow with `of task notification ...` on the resolved task ID.

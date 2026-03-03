@@ -19,10 +19,11 @@ Path: @/src/jxa
 
 - **JSON protocol**: Input is `{ op, params }`. Output is always `{ ok: true, data }` on success or `{ ok: false, error, candidates? }` on failure. The `candidates` field appears when entity lookup is ambiguous, enabling the CLI to present choices.
 - **Dispatcher**: The `run(args)` entry point parses the JSON argument, obtains the OmniFocus `Application` and its `defaultDocument`, looks up a handler in the `ops` registry by `cmd.op`, and calls `handler(of, doc, params)`. Unrecognized ops and uncaught exceptions are caught and returned as `fail()` responses.
-- **Ops registry**: A plain `var ops = {}` object where each handler is registered as `ops["domain.action"] = function(of, doc, p) { ... }`. Domains include `task`, `project`, `tag`, `folder`, `inbox`, plus top-level ops like `forecast`, `review`, `stats`, `bulk.*`, and `collect`.
+- **Ops registry**: A plain `var ops = {}` object where each handler is registered as `ops["domain.action"] = function(of, doc, p) { ... }`. Domains include `task`, `project`, `tag`, `folder`, `inbox`, plus top-level ops like `forecast`, `review`, `stats`, `bulk.*`, and `collect`. Notification CRUD is exposed via `task.notification.*`.
 - **Fuzzy entity resolution**: Lookup functions (`findExistingTag`, `findExistingProject`, `findTaskByQuery`) follow a consistent three-tier strategy: exact match → case-insensitive substring match → ambiguity error with up to 10 candidate names. `findTaskByQuery` adds an ID-based lookup as the first tier.
 - **Batch property access**: The `task.list` inbox path fetches properties in batch (`inbox.name()`, `inbox.id()`, etc. as arrays) rather than per-task, a deliberate JXA performance optimization to reduce Apple Event round-trips.
 - **Property application**: `applyTaskProps` is a shared function that batch-applies a parameter bag (due, defer, flag, tags, repeat, estimate, etc.) to a task, returning an array of human-readable change descriptions. Tag and repeat operations that fail are recorded as soft warnings rather than aborting the operation.
+- **Notification bridge path**: Task notifications are implemented through `of.evaluateJavascript(...)` (Omni Automation `Task.Notification`) because Apple Event task objects do not expose notification properties directly.
 
 ### Things to Know
 
@@ -30,6 +31,7 @@ Path: @/src/jxa
 - **Soft failure in batch operations**: `bulk.create`, `bulk.update`, and `bulk.complete` process each item independently, collecting per-item `{ ok, ... }` results. A single item failure does not abort the batch.
 - **Date parsing is manual**: `parseDate` handles `YYYY-MM-DD` and `YYYY-MM-DDTHH:MM` formats explicitly with string splitting (no `Date.parse`), falling back to `new Date(str)` for other formats. This avoids timezone ambiguity in the JXA runtime.
 - **No ES6**: The entire file uses `var`, `function`, and `for` loops — JXA's JavaScript engine is pre-ES6. No `let`/`const`, arrow functions, template literals, or destructuring.
+- **Strict capability behavior for notifications**: notification-enabled read/mutation paths fail explicitly if the OmniFocus runtime does not support `Task.Notification`.
 - **`collect` op enriches tasks**: Beyond standard formatting, it parses spoon cost, priority, and rigidity from task names and tags — metadata conventions specific to the user's OmniFocus workflow.
 - **Ambiguity is an error, not a guess**: When multiple entities match a fuzzy lookup, the bridge returns an error with candidates rather than silently picking one. This is a deliberate design invariant that pushes disambiguation to the CLI layer.
 

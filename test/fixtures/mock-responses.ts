@@ -29,6 +29,19 @@ export const MOCK_TASK: OFTask = {
 	parentTask: null,
 	tags: ["🔋 Medium", "🏡 Daheim"],
 	repetitionRule: null,
+	notifications: [
+		{
+			id: "notif-1",
+			kind: "absolute",
+			absoluteFireDate: "2026-03-04T09:00:00.000Z",
+			relativeFireOffsetSeconds: null,
+			repeatIntervalSeconds: 3600,
+			nextFireDate: "2026-03-04T10:00:00.000Z",
+			initialFireDate: "2026-03-04T09:00:00.000Z",
+			isSnoozed: false,
+			usesFloatingTimeZone: false,
+		},
+	],
 	childCount: 0,
 };
 

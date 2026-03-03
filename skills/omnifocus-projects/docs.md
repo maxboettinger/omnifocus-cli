@@ -13,3 +13,4 @@ Primary commands:
 ## Architecture Alignment
 
 Use discover-first flows and ID-based updates where possible. Deletion remains explicit via `--confirm`.
+Task reminders are outside project namespace operations and should use `of task notification ...`.

@@ -16,13 +16,14 @@ Path: @/test
 ### Core Implementation
 - **Mocking strategy**: `createMockClient()` in the integration tests builds a complete `OmniFocusClient` where every method is a `bun:test` `mock()` returning a `Promise<BridgeResponse<T>>` via the `successResponse()` helper. Tests assert on call counts and argument shapes.
 - **Integration test harness**: `runCommand()` creates a real `Commander` program with `exitOverride()`, registers a single command group, monkey-patches `console.log`/`console.error` to capture output arrays, then calls `parseAsync()`. This tests the full path from CLI argv through option parsing, command handler, client call, and output formatting.
-- **Unit test coverage**: core tests verify `unwrapBridgeResponse` success/error unwrapping (including structured candidates), the full `CLIError` hierarchy (exit codes, `format()`, specialized subclasses), and output formatters (`formatTaskLine`, `formatTaskDetail`, `formatProjectLine`, `formatProjectDetail`, `resolveFormat`).
-- **Fixture design**: `mock-responses.ts` exports typed constants (`MOCK_TASK`, `MOCK_PROJECT`, `MOCK_STATS`) plus `successResponse<T>()` and `errorResponse()` factory functions that wrap data in `BridgeResponse` envelopes. The `makeTask()`/`makeProject()` helpers in output tests use spread overrides for targeted field variations.
+- **Unit test coverage**: core tests verify `unwrapBridgeResponse` success/error unwrapping (including structured candidates), the full `CLIError` hierarchy (exit codes, `format()`, specialized subclasses), parser helpers (integer and duration syntax), and output formatters (`formatTaskLine`, `formatTaskDetail`, `formatProjectLine`, `formatProjectDetail`, `resolveFormat`).
+- **Fixture design**: `mock-responses.ts` exports typed constants (`MOCK_TASK`, `MOCK_PROJECT`, `MOCK_STATS`) plus `successResponse<T>()` and `errorResponse()` factory functions that wrap data in `BridgeResponse` envelopes. `MOCK_TASK` includes notification sample data for task notification command and detail output coverage. The `makeTask()`/`makeProject()` helpers in output tests use spread overrides for targeted field variations.
 
 ### Things to Know
 - The integration tests rely on `exitOverride()` to prevent Commander from calling `process.exit()` on parse errors. Without it, a bad test would kill the runner.
 - Console capture via monkey-patching (`console.log = ...`) is restored in a `finally` block. Tests that check TTY-dependent behavior (`isTTY`) use `Object.defineProperty` to temporarily override `process.stdout.isTTY` and restore it afterward.
 - The `test/commands/` and `test/services/` directories exist but are currently empty — all command-level testing lives in `test/integration/cli.test.ts` as a single integration file rather than per-command test files.
 - Coverage deliberately excludes: bridge transport (`@/src/core/bridge.ts`), the JXA script (`@/src/jxa/bridge.js`), forecast output, review output, and bulk operation formatting. These would require either real OmniFocus interaction or more complex JXA mocking.
+- Integration coverage includes `task notification list|add|update|delete|clear`, plus validation guards (`--confirm`, kind-specific requirements, required mutation flags).
 
 Created and maintained by Nori.

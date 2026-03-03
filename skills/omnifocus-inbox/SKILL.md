@@ -30,3 +30,5 @@ Ask follow-up questions only when one of these blocks execution:
 - Conflicting due/defer/planned intent
 
 Otherwise, capture first and refine later with `of inbox process` or `of task update`.
+
+If reminders are requested during refinement, use `of task notification add|update ...` after task identity is stable.

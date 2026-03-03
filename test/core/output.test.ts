@@ -134,6 +134,19 @@ describe("formatTaskDetail", () => {
 				estimatedMinutes: 30,
 				tags: ["errand"],
 				repetitionRule: { rule: "FREQ=WEEKLY", method: "due date" },
+				notifications: [
+					{
+						id: "notif-1",
+						kind: "absolute",
+						absoluteFireDate: "2026-03-14T09:00:00.000Z",
+						relativeFireOffsetSeconds: null,
+						repeatIntervalSeconds: 3600,
+						nextFireDate: null,
+						initialFireDate: null,
+						isSnoozed: false,
+						usesFloatingTimeZone: false,
+					},
+				],
 				sequential: true,
 				blocked: true,
 				parentTask: { id: "parent-1", name: "Shopping" },
@@ -146,6 +159,8 @@ describe("formatTaskDetail", () => {
 		expect(detail).toContain("errand");
 		expect(detail).toContain("30 min");
 		expect(detail).toContain("FREQ=WEEKLY");
+		expect(detail).toContain("Notifications:");
+		expect(detail).toContain("notif-1");
 		expect(detail).toContain("Shopping");
 	});
 

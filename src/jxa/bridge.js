@@ -263,6 +263,238 @@ function extractWarnings(changes) {
     return warnings;
 }
 
+function findTaskFromParams(doc, p, opts) {
+    opts = opts || {};
+    if (p.id) {
+        var found = findTaskById(doc, p.id);
+        if (!found) return { error: "Task not found with ID: " + p.id };
+        return { task: found };
+    }
+    if (!p.query) return { error: "Task query or id required" };
+    return findTaskByQuery(doc, p.query, opts);
+}
+
+function runOmniAutomation(of, payload, scriptBody) {
+    var payloadJson = JSON.stringify(payload || {});
+    var script = [
+        "(function(){",
+        "var payload = " + payloadJson + ";",
+        "var __result = (function(){",
+        scriptBody,
+        "})();",
+        "return JSON.stringify(__result);",
+        "})()"
+    ].join("\n");
+    try {
+        var result = of.evaluateJavascript(script);
+        if (typeof result === "string") {
+            try { result = JSON.parse(result); } catch(parseError) { return { ok: false, error: "Omni Automation returned invalid JSON: " + parseError.message }; }
+        }
+        if (!result || typeof result !== "object" || typeof result.ok !== "boolean") {
+            return { ok: false, error: "Omni Automation returned malformed response" };
+        }
+        return result;
+    } catch(e) {
+        return { ok: false, error: "Omni Automation failed: " + e.message };
+    }
+}
+
+function ensureNotificationApiAvailable(of) {
+    var check = runOmniAutomation(of, {}, [
+        "var supported = (typeof Task !== \"undefined\") && Task.Notification && Task.Notification.Kind && typeof Task.byIdentifier === \"function\";",
+        "return { ok: true, data: { supported: !!supported } };"
+    ].join("\n"));
+    if (!check.ok) return check;
+    if (!check.data || !check.data.supported) {
+        return { ok: false, error: "Task notifications are not supported by this OmniFocus version." };
+    }
+    return { ok: true, data: { supported: true } };
+}
+
+function runTaskNotificationOperation(of, payload) {
+    return runOmniAutomation(of, payload, [
+        "var supported = (typeof Task !== \"undefined\") && Task.Notification && Task.Notification.Kind && typeof Task.byIdentifier === \"function\";",
+        "if (!supported) return { ok: false, error: \"Task notifications are not supported by this OmniFocus version.\" };",
+        "function serializeNotification(n) {",
+        "  var kind = \"unknown\";",
+        "  if (n.kind === Task.Notification.Kind.Absolute) kind = \"absolute\";",
+        "  else if (n.kind === Task.Notification.Kind.DueRelative) kind = \"due-relative\";",
+        "  var absoluteFireDate = null;",
+        "  var relativeFireOffsetSeconds = null;",
+        "  var repeatIntervalSeconds = null;",
+        "  var nextFireDate = null;",
+        "  var initialFireDate = null;",
+        "  var isSnoozed = null;",
+        "  var usesFloatingTimeZone = null;",
+        "  try { absoluteFireDate = n.absoluteFireDate ? n.absoluteFireDate.toISOString() : null; } catch(_) {}",
+        "  try { relativeFireOffsetSeconds = n.relativeFireOffset; } catch(_) {}",
+        "  try { repeatIntervalSeconds = n.repeatInterval; } catch(_) {}",
+        "  try { nextFireDate = n.nextFireDate ? n.nextFireDate.toISOString() : null; } catch(_) {}",
+        "  try { initialFireDate = n.initialFireDate ? n.initialFireDate.toISOString() : null; } catch(_) {}",
+        "  try { isSnoozed = n.isSnoozed; } catch(_) {}",
+        "  try { usesFloatingTimeZone = n.usesFloatingTimeZone; } catch(_) {}",
+        "  return {",
+        "    id: n.id.primaryKey,",
+        "    kind: kind,",
+        "    absoluteFireDate: absoluteFireDate,",
+        "    relativeFireOffsetSeconds: relativeFireOffsetSeconds,",
+        "    repeatIntervalSeconds: repeatIntervalSeconds,",
+        "    nextFireDate: nextFireDate,",
+        "    initialFireDate: initialFireDate,",
+        "    isSnoozed: isSnoozed,",
+        "    usesFloatingTimeZone: usesFloatingTimeZone",
+        "  };",
+        "}",
+        "function serializeAll(task) {",
+        "  var out = [];",
+        "  for (var i = 0; i < task.notifications.length; i++) out.push(serializeNotification(task.notifications[i]));",
+        "  return out;",
+        "}",
+        "function findNotificationById(task, notificationId) {",
+        "  for (var i = 0; i < task.notifications.length; i++) {",
+        "    var n = task.notifications[i];",
+        "    if (n.id && n.id.primaryKey === notificationId) return n;",
+        "  }",
+        "  return null;",
+        "}",
+        "try {",
+        "  var task = Task.byIdentifier(payload.taskId);",
+        "  if (!task) return { ok: false, error: \"Task not found with ID: \" + payload.taskId };",
+        "  if (payload.op === \"list\") {",
+        "    return { ok: true, data: { taskId: task.id.primaryKey, taskName: task.name, notifications: serializeAll(task) } };",
+        "  }",
+        "  if (payload.op === \"add\") {",
+        "    var info = { kind: null };",
+        "    if (payload.kind === \"absolute\") {",
+        "      var ad = new Date(payload.at);",
+        "      if (isNaN(ad.getTime())) return { ok: false, error: \"Invalid absolute date: \" + payload.at };",
+        "      info.kind = Task.Notification.Kind.Absolute;",
+        "      info.absoluteFireDate = ad;",
+        "    } else if (payload.kind === \"due-relative\") {",
+        "      if (payload.offsetSeconds === null || payload.offsetSeconds === undefined) return { ok: false, error: \"offsetSeconds is required for due-relative notifications\" };",
+        "      info.kind = Task.Notification.Kind.DueRelative;",
+        "      info.relativeFireOffset = payload.offsetSeconds;",
+        "    } else {",
+        "      return { ok: false, error: \"Unsupported notification kind: \" + payload.kind };",
+        "    }",
+        "    if (payload.repeatSeconds !== null && payload.repeatSeconds !== undefined) {",
+        "      if (payload.repeatSeconds < 0) return { ok: false, error: \"repeatSeconds must be non-negative\" };",
+        "      info.repeatInterval = payload.repeatSeconds;",
+        "    }",
+        "    var created = task.addNotification(info);",
+        "    return { ok: true, data: { taskId: task.id.primaryKey, taskName: task.name, notification: serializeNotification(created), notifications: serializeAll(task) } };",
+        "  }",
+        "  if (payload.op === \"update\") {",
+        "    var target = findNotificationById(task, payload.notificationId);",
+        "    if (!target) return { ok: false, error: \"Notification not found with ID: \" + payload.notificationId };",
+        "    var isAbsolute = target.kind === Task.Notification.Kind.Absolute;",
+        "    var isDueRelative = target.kind === Task.Notification.Kind.DueRelative;",
+        "    if (!isAbsolute && !isDueRelative) return { ok: false, error: \"Unsupported notification kind for update\" };",
+        "    if (payload.at !== null && payload.at !== undefined) {",
+        "      if (!isAbsolute) return { ok: false, error: \"Cannot set absolute fire date on due-relative notification\" };",
+        "      var ud = new Date(payload.at);",
+        "      if (isNaN(ud.getTime())) return { ok: false, error: \"Invalid absolute date: \" + payload.at };",
+        "      target.absoluteFireDate = ud;",
+        "    }",
+        "    if (payload.offsetSeconds !== null && payload.offsetSeconds !== undefined) {",
+        "      if (!isDueRelative) return { ok: false, error: \"Cannot set relative offset on absolute notification\" };",
+        "      target.relativeFireOffset = payload.offsetSeconds;",
+        "    }",
+        "    if (payload.repeatMode === \"clear\") {",
+        "      target.repeatInterval = 0;",
+        "    } else if (payload.repeatMode === \"set\") {",
+        "      if (payload.repeatSeconds < 0) return { ok: false, error: \"repeatSeconds must be non-negative\" };",
+        "      target.repeatInterval = payload.repeatSeconds;",
+        "    }",
+        "    return { ok: true, data: { taskId: task.id.primaryKey, taskName: task.name, notification: serializeNotification(target), notifications: serializeAll(task) } };",
+        "  }",
+        "  if (payload.op === \"delete\") {",
+        "    var toDelete = findNotificationById(task, payload.notificationId);",
+        "    if (!toDelete) return { ok: false, error: \"Notification not found with ID: \" + payload.notificationId };",
+        "    task.removeNotification(toDelete);",
+        "    return { ok: true, data: { taskId: task.id.primaryKey, taskName: task.name, deletedId: payload.notificationId, notifications: serializeAll(task) } };",
+        "  }",
+        "  if (payload.op === \"clear\") {",
+        "    if (!payload.confirm) return { ok: false, error: \"Clear requires confirm: true for safety\" };",
+        "    var existing = [];",
+        "    for (var i = 0; i < task.notifications.length; i++) existing.push(task.notifications[i]);",
+        "    for (var j = 0; j < existing.length; j++) task.removeNotification(existing[j]);",
+        "    return { ok: true, data: { taskId: task.id.primaryKey, taskName: task.name, cleared: existing.length, notifications: serializeAll(task) } };",
+        "  }",
+        "  return { ok: false, error: \"Unsupported notification operation: \" + payload.op };",
+        "} catch (e) {",
+        "  return { ok: false, error: e.message || String(e) };",
+        "}"
+    ].join("\n"));
+}
+
+function fetchNotificationsByTaskIds(of, taskIds) {
+    var check = ensureNotificationApiAvailable(of);
+    if (!check.ok) return check;
+    return runOmniAutomation(of, { taskIds: taskIds }, [
+        "var supported = (typeof Task !== \"undefined\") && Task.Notification && Task.Notification.Kind && typeof Task.byIdentifier === \"function\";",
+        "if (!supported) return { ok: false, error: \"Task notifications are not supported by this OmniFocus version.\" };",
+        "function serializeNotification(n) {",
+        "  var kind = \"unknown\";",
+        "  if (n.kind === Task.Notification.Kind.Absolute) kind = \"absolute\";",
+        "  else if (n.kind === Task.Notification.Kind.DueRelative) kind = \"due-relative\";",
+        "  var absoluteFireDate = null;",
+        "  var relativeFireOffsetSeconds = null;",
+        "  var repeatIntervalSeconds = null;",
+        "  var nextFireDate = null;",
+        "  var initialFireDate = null;",
+        "  var isSnoozed = null;",
+        "  var usesFloatingTimeZone = null;",
+        "  try { absoluteFireDate = n.absoluteFireDate ? n.absoluteFireDate.toISOString() : null; } catch(_) {}",
+        "  try { relativeFireOffsetSeconds = n.relativeFireOffset; } catch(_) {}",
+        "  try { repeatIntervalSeconds = n.repeatInterval; } catch(_) {}",
+        "  try { nextFireDate = n.nextFireDate ? n.nextFireDate.toISOString() : null; } catch(_) {}",
+        "  try { initialFireDate = n.initialFireDate ? n.initialFireDate.toISOString() : null; } catch(_) {}",
+        "  try { isSnoozed = n.isSnoozed; } catch(_) {}",
+        "  try { usesFloatingTimeZone = n.usesFloatingTimeZone; } catch(_) {}",
+        "  return {",
+        "    id: n.id.primaryKey,",
+        "    kind: kind,",
+        "    absoluteFireDate: absoluteFireDate,",
+        "    relativeFireOffsetSeconds: relativeFireOffsetSeconds,",
+        "    repeatIntervalSeconds: repeatIntervalSeconds,",
+        "    nextFireDate: nextFireDate,",
+        "    initialFireDate: initialFireDate,",
+        "    isSnoozed: isSnoozed,",
+        "    usesFloatingTimeZone: usesFloatingTimeZone",
+        "  };",
+        "}",
+        "if (!Array.isArray(payload.taskIds)) return { ok: false, error: \"taskIds array required\" };",
+        "var byTaskId = {};",
+        "for (var i = 0; i < payload.taskIds.length; i++) {",
+        "  var taskId = payload.taskIds[i];",
+        "  var task = Task.byIdentifier(taskId);",
+        "  if (!task) { byTaskId[taskId] = []; continue; }",
+        "  var serialized = [];",
+        "  for (var j = 0; j < task.notifications.length; j++) serialized.push(serializeNotification(task.notifications[j]));",
+        "  byTaskId[taskId] = serialized;",
+        "}",
+        "return { ok: true, data: { byTaskId: byTaskId } };"
+    ].join("\n"));
+}
+
+function attachNotificationsToTasks(of, tasks) {
+    var taskIds = [];
+    for (var i = 0; i < tasks.length; i++) {
+        if (tasks[i] && tasks[i].id) taskIds.push(tasks[i].id);
+    }
+    if (taskIds.length === 0) return { ok: true };
+    var result = fetchNotificationsByTaskIds(of, taskIds);
+    if (!result.ok) return result;
+    var byTaskId = (result.data && result.data.byTaskId) ? result.data.byTaskId : {};
+    for (var j = 0; j < tasks.length; j++) {
+        var t = tasks[j];
+        if (!t || !t.id) continue;
+        t.notifications = byTaskId[t.id] || [];
+    }
+    return { ok: true };
+}
+
 // ── Operations ──────────────────────────────────────────────────────────────
 
 var ops = {};
@@ -290,7 +522,12 @@ ops["task.get"] = function(of, doc, p) {
     if (!p.query) return fail("Task query required");
     var r = findTaskByQuery(doc, p.query, { searchCompleted: p.searchCompleted });
     if (r.error) return fail(r.error, r.candidates ? { candidates: r.candidates } : {});
-    return ok(formatTask(r.task));
+    var taskData = formatTask(r.task);
+    if (p.includeNotifications) {
+        var attachResult = attachNotificationsToTasks(of, [taskData]);
+        if (!attachResult.ok) return fail(attachResult.error);
+    }
+    return ok(taskData);
 };
 
 ops["task.update"] = function(of, doc, p) {
@@ -397,6 +634,10 @@ ops["task.list"] = function(of, doc, p) {
                 repetitionRule: rep, childCount: cc
             });
         }
+        if (p.includeNotifications) {
+            var inboxAttach = attachNotificationsToTasks(of, results);
+            if (!inboxAttach.ok) return fail(inboxAttach.error);
+        }
         return ok(results);
     }
 
@@ -417,6 +658,10 @@ ops["task.list"] = function(of, doc, p) {
             default: return fail("Unknown filter: " + filter);
         }
         if (include) results.push(formatTask(t));
+    }
+    if (p.includeNotifications) {
+        var attach = attachNotificationsToTasks(of, results);
+        if (!attach.ok) return fail(attach.error);
     }
     return ok(results);
 };
@@ -493,6 +738,84 @@ ops["task.applyTag"] = function(of, doc, p) {
         of.add(resolved[j], { to: task.tags }); applied.push(resolved[j].name());
     }
     return ok({ id: task.id(), name: task.name(), applied: applied, task: formatTask(task) });
+};
+
+ops["task.notification.list"] = function(of, doc, p) {
+    var findResult = findTaskFromParams(doc, p, { searchCompleted: true });
+    if (findResult.error) return fail(findResult.error, findResult.candidates ? { candidates: findResult.candidates } : {});
+    var task = findResult.task;
+    var result = runTaskNotificationOperation(of, {
+        op: "list",
+        taskId: task.id()
+    });
+    if (!result.ok) return fail(result.error);
+    return ok(result.data);
+};
+
+ops["task.notification.add"] = function(of, doc, p) {
+    var findResult = findTaskFromParams(doc, p, { searchCompleted: true });
+    if (findResult.error) return fail(findResult.error, findResult.candidates ? { candidates: findResult.candidates } : {});
+    var task = findResult.task;
+    var result = runTaskNotificationOperation(of, {
+        op: "add",
+        taskId: task.id(),
+        kind: p.kind,
+        at: p.at || null,
+        offsetSeconds: (p.offsetSeconds !== undefined ? p.offsetSeconds : null),
+        repeatSeconds: (p.repeatSeconds !== undefined ? p.repeatSeconds : null)
+    });
+    if (!result.ok) return fail(result.error);
+    return ok(result.data);
+};
+
+ops["task.notification.update"] = function(of, doc, p) {
+    var findResult = findTaskFromParams(doc, p, { searchCompleted: true });
+    if (findResult.error) return fail(findResult.error, findResult.candidates ? { candidates: findResult.candidates } : {});
+    if (!p.notificationId) return fail("notificationId required");
+    var repeatMode = "none";
+    var repeatSeconds = null;
+    if (p.repeatSeconds === "clear") {
+        repeatMode = "clear";
+    } else if (p.repeatSeconds !== undefined && p.repeatSeconds !== null) {
+        repeatMode = "set";
+        repeatSeconds = p.repeatSeconds;
+    }
+    var result = runTaskNotificationOperation(of, {
+        op: "update",
+        taskId: findResult.task.id(),
+        notificationId: p.notificationId,
+        at: (p.at !== undefined ? p.at : null),
+        offsetSeconds: (p.offsetSeconds !== undefined ? p.offsetSeconds : null),
+        repeatMode: repeatMode,
+        repeatSeconds: repeatSeconds
+    });
+    if (!result.ok) return fail(result.error);
+    return ok(result.data);
+};
+
+ops["task.notification.delete"] = function(of, doc, p) {
+    var findResult = findTaskFromParams(doc, p, { searchCompleted: true });
+    if (findResult.error) return fail(findResult.error, findResult.candidates ? { candidates: findResult.candidates } : {});
+    if (!p.notificationId) return fail("notificationId required");
+    var result = runTaskNotificationOperation(of, {
+        op: "delete",
+        taskId: findResult.task.id(),
+        notificationId: p.notificationId
+    });
+    if (!result.ok) return fail(result.error);
+    return ok(result.data);
+};
+
+ops["task.notification.clear"] = function(of, doc, p) {
+    var findResult = findTaskFromParams(doc, p, { searchCompleted: true });
+    if (findResult.error) return fail(findResult.error, findResult.candidates ? { candidates: findResult.candidates } : {});
+    var result = runTaskNotificationOperation(of, {
+        op: "clear",
+        taskId: findResult.task.id(),
+        confirm: !!p.confirm
+    });
+    if (!result.ok) return fail(result.error);
+    return ok(result.data);
 };
 
 // ── Project operations ──────────────────────────────────────────────────

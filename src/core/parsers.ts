@@ -14,3 +14,30 @@ export function parseIntOption(value: string): number {
 	}
 	return n;
 }
+
+/**
+ * Parse duration strings like -1h, 30m, 1h30m, 90s, +2h15m into seconds.
+ */
+export function parseDurationToSeconds(value: string): number {
+	const trimmed = value.trim();
+	const match = /^([+-])?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/.exec(trimmed);
+	if (!match) {
+		throw new Error(`Invalid duration: ${value}`);
+	}
+
+	const hours = match[2] ? Number.parseInt(match[2], 10) : 0;
+	const minutes = match[3] ? Number.parseInt(match[3], 10) : 0;
+	const seconds = match[4] ? Number.parseInt(match[4], 10) : 0;
+
+	if (hours === 0 && minutes === 0 && seconds === 0) {
+		throw new Error(`Invalid duration: ${value}`);
+	}
+
+	const total = hours * 3600 + minutes * 60 + seconds;
+	return match[1] === "-" ? -total : total;
+}
+
+export function parseDurationOrClear(value: string): number | "clear" {
+	if (value === "clear") return "clear";
+	return parseDurationToSeconds(value);
+}

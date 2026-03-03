@@ -7,4 +7,6 @@ Use the CLI contract instead:
 - client bridge contract: `src/core/types.ts` and `src/core/client.ts`
 - architecture overview: `docs.md`
 
+Current bridge internals include an Omni Automation path for task notifications (`task.notification.*`) via `evaluate javascript`.
+
 JXA implementation details are internal bridge concerns and should not be treated as the primary automation interface for skills.

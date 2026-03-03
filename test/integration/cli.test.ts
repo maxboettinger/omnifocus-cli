@@ -7,6 +7,7 @@
  */
 
 import { describe, expect, mock, test } from "bun:test";
+import { Readable } from "node:stream";
 import { Command } from "commander";
 import { registerCollectCommand } from "../../src/commands/collect.js";
 import { registerFolderCommands } from "../../src/commands/folder/index.js";
@@ -172,6 +173,28 @@ async function runCommand(
 		console.error = origErr;
 	}
 	return { client: c, stdout, stderr };
+}
+
+async function runCommandWithStdin(
+	setup: (program: Command, client: OmniFocusClient) => void,
+	argv: string[],
+	stdinInput: string,
+	client?: OmniFocusClient,
+): Promise<{ client: OmniFocusClient; stdout: string[]; stderr: string[] }> {
+	const originalStdin = process.stdin;
+	const mockStdin = Readable.from([Buffer.from(stdinInput)]);
+	Object.defineProperty(process, "stdin", {
+		value: mockStdin,
+		configurable: true,
+	});
+	try {
+		return await runCommand(setup, argv, client);
+	} finally {
+		Object.defineProperty(process, "stdin", {
+			value: originalStdin,
+			configurable: true,
+		});
+	}
 }
 
 // ── Task commands ───────────────────────────────────────────────────────────
@@ -404,6 +427,36 @@ describe("inbox commands", () => {
 				configurable: true,
 			});
 		}
+	});
+
+	test("inbox process-many calls processInbox for each stdin item", async () => {
+		const c = createMockClient();
+		await runCommandWithStdin(
+			registerInboxCommands,
+			["inbox", "process-many", "--json"],
+			JSON.stringify([
+				{ id: "inbox-1", project: "Errands", tags: ["errand"] },
+				{ id: "inbox-2", complete: true },
+			]),
+			c,
+		);
+
+		expect(c.processInbox).toHaveBeenCalledTimes(2);
+		const calls = (c.processInbox as ReturnType<typeof mock>).mock.calls as [
+			Record<string, unknown>,
+		][];
+		expect(calls).toHaveLength(2);
+		const firstCall = calls.at(0);
+		const secondCall = calls.at(1);
+		if (!firstCall || !secondCall) {
+			throw new Error("Expected exactly two processInbox calls");
+		}
+		expect(firstCall[0]).toMatchObject({
+			id: "inbox-1",
+			project: "Errands",
+			tags: ["errand"],
+		});
+		expect(secondCall[0]).toMatchObject({ id: "inbox-2", complete: true });
 	});
 });
 

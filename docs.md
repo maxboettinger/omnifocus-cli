@@ -128,6 +128,8 @@ Operations: `task.create`, `task.get`, `task.update`, `task.complete`, `task.del
 
 **Task notifications use Omni Automation via the bridge.** Notification CRUD is implemented through OmniFocus `evaluate javascript` calls (`Task.Notification`) behind bridge ops. `task show` always includes notifications; `task list` includes them only for JSON output.
 
+**Beads tracker state is Dolt-backed and local.** The issue board lives in `.beads/dolt`; if `bd` reports `database not found`, verify `bd dolt show` points to the actual database (`dolt` in this repo) and run `bd doctor --fix` to restore missing metadata/schema without deleting `.beads/dolt`.
+
 ### Development
 
 ```bash

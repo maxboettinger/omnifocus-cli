@@ -746,8 +746,8 @@ describe("completion command", () => {
 		);
 		const script = stdout.join("\n");
 		expect(script).toContain("function __of_seen_task_notification");
-		expect(script).toContain("test \"$cmd[2]\" = \"task\"");
-		expect(script).toContain("test \"$cmd[3]\" = \"notification\"");
+		expect(script).toContain('test "$cmd[2]" = "task"');
+		expect(script).toContain('test "$cmd[3]" = "notification"');
 		expect(script).toContain(
 			"complete -c of -n '__of_seen_task_notification' -a list -d 'List task notifications'",
 		);

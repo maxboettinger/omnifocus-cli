@@ -7,3 +7,7 @@ of
 .beads/
 .clawdhub/
 IMPLEMENTATION_PLAN.mdTODO.md
+
+# Dolt database files (added by bd init)
+.dolt/
+*.db

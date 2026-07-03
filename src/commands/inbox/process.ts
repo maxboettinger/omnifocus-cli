@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
-import { BridgeError } from "../../core/errors.js";
+import { BridgeError, ConfirmationRequiredError } from "../../core/errors.js";
 import {
 	outputChanges,
 	outputError,
@@ -35,9 +35,16 @@ export function registerProcessCommand(parent: Command, client: OmniFocusClient)
 		.option("--complete", "Mark as complete")
 		.option("--delete", "Delete the item")
 		.option("--dry-run", "Show what would be changed without applying")
+		.option("--confirm", "Confirm deletion (required with --delete)")
 		.option("--json", "JSON output")
 		.action(async (id: string, opts: Record<string, unknown>, cmd: Command) => {
 			try {
+				if (opts.delete && !opts.dryRun && !opts.confirm) {
+					outputError(new ConfirmationRequiredError("inbox process --delete").message);
+					process.exit(1);
+					return;
+				}
+
 				const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);
 				const response = await client.processInbox({
 					id,
@@ -60,6 +67,7 @@ export function registerProcessCommand(parent: Command, client: OmniFocusClient)
 					complete: opts.complete as boolean,
 					delete: opts.delete as boolean,
 					dryRun: opts.dryRun as boolean,
+					confirm: opts.confirm as boolean,
 				});
 				const data = unwrapBridgeResponse(response);
 

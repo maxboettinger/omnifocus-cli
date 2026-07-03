@@ -1175,6 +1175,7 @@ ops["inbox.process"] = function(of, doc, p) {
     }
 
     if (p["delete"]) {
+        if (!p.confirm) return fail("Delete requires confirm: true for safety");
         var name = task.name();
         of.delete(task);
         return ok({ id: p.id, changes: ["deleted"], name: name });

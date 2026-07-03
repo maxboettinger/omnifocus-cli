@@ -737,6 +737,104 @@ describe("inbox commands", () => {
 		]);
 		expect(stderr).toHaveLength(0);
 	});
+
+	test("inbox process --delete without --confirm exits with error", async () => {
+		const c = createMockClient();
+		const origExit = process.exit;
+		let exitCode: number | undefined;
+		process.exit = ((code?: number) => {
+			exitCode = code;
+		}) as never;
+		try {
+			const { stderr } = await runCommand(
+				registerInboxCommands,
+				["inbox", "process", "inbox-1", "--delete"],
+				c,
+			);
+			expect(c.processInbox).not.toHaveBeenCalled();
+			expect(exitCode).toBe(1);
+			expect(stderr.some((line) => line.includes("--confirm"))).toBeTrue();
+		} finally {
+			process.exit = origExit;
+		}
+	});
+
+	test("inbox process --delete --confirm calls processInbox with confirm: true", async () => {
+		const { client } = await runCommand(registerInboxCommands, [
+			"inbox",
+			"process",
+			"inbox-1",
+			"--delete",
+			"--confirm",
+			"--json",
+		]);
+		expect(client.processInbox).toHaveBeenCalledTimes(1);
+		const call = (client.processInbox as ReturnType<typeof mock>).mock.calls[0] as [
+			Record<string, unknown>,
+		];
+		expect(call[0]).toMatchObject({ id: "inbox-1", delete: true, confirm: true });
+	});
+
+	test("inbox process --delete --dry-run without --confirm still calls processInbox", async () => {
+		const { client } = await runCommand(registerInboxCommands, [
+			"inbox",
+			"process",
+			"inbox-1",
+			"--delete",
+			"--dry-run",
+			"--json",
+		]);
+		expect(client.processInbox).toHaveBeenCalledTimes(1);
+		const call = (client.processInbox as ReturnType<typeof mock>).mock.calls[0] as [
+			Record<string, unknown>,
+		];
+		expect(call[0]).toMatchObject({ id: "inbox-1", delete: true, dryRun: true });
+	});
+
+	test("inbox process-many with delete item and no --confirm exits with error", async () => {
+		const c = createMockClient();
+		const origExit = process.exit;
+		let exitCode: number | undefined;
+		process.exit = ((code?: number) => {
+			exitCode = code;
+		}) as never;
+		try {
+			const { stderr } = await runCommandWithStdin(
+				registerInboxCommands,
+				["inbox", "process-many"],
+				JSON.stringify([
+					{ id: "inbox-1", project: "Errands" },
+					{ id: "inbox-2", delete: true },
+				]),
+				c,
+			);
+			expect(c.processInbox).not.toHaveBeenCalled();
+			expect(exitCode).toBe(1);
+			expect(stderr.some((line) => line.includes("--confirm"))).toBeTrue();
+		} finally {
+			process.exit = origExit;
+		}
+	});
+
+	test("inbox process-many with delete item and --confirm processes items", async () => {
+		const c = createMockClient();
+		await runCommandWithStdin(
+			registerInboxCommands,
+			["inbox", "process-many", "--confirm", "--json"],
+			JSON.stringify([
+				{ id: "inbox-1", project: "Errands" },
+				{ id: "inbox-2", delete: true },
+			]),
+			c,
+		);
+
+		expect(c.processInbox).toHaveBeenCalledTimes(2);
+		const calls = (c.processInbox as ReturnType<typeof mock>).mock.calls as [
+			Record<string, unknown>,
+		][];
+		expect(calls[0]?.[0]).toMatchObject({ id: "inbox-1", project: "Errands" });
+		expect(calls[1]?.[0]).toMatchObject({ id: "inbox-2", delete: true, confirm: true });
+	});
 });
 
 describe("task list limit notice", () => {

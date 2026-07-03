@@ -58,7 +58,11 @@ export function runBridge(
 	op: string,
 	params: Record<string, unknown> = {},
 ): BridgeResponse {
-	const app = { includeStandardAdditions: false, defaultDocument: doc };
+	const app = {
+		includeStandardAdditions: false,
+		defaultDocument: doc,
+		delete: () => undefined,
+	};
 	const Application = (name: string) => {
 		if (name !== "OmniFocus") throw new Error(`Unexpected Application: ${name}`);
 		return app;

@@ -265,6 +265,7 @@ export interface InboxProcessOptions {
 	complete?: boolean;
 	delete?: boolean;
 	dryRun?: boolean;
+	confirm?: boolean;
 }
 
 // ── List/filter options ─────────────────────────────────────────────────────

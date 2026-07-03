@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
-import { BridgeError } from "../../core/errors.js";
+import { BridgeError, ConfirmationRequiredError } from "../../core/errors.js";
 import {
 	dim,
 	green,
@@ -38,6 +38,7 @@ export function registerProcessManyCommand(parent: Command, client: OmniFocusCli
 	parent
 		.command("process-many")
 		.description("Process many inbox items from stdin JSON")
+		.option("--confirm", "Confirm deletion of any items with delete: true")
 		.option("--json", "JSON output")
 		.action(async (opts: Record<string, unknown>, cmd: Command) => {
 			const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);
@@ -68,6 +69,16 @@ export function registerProcessManyCommand(parent: Command, client: OmniFocusCli
 				process.exit(1);
 			}
 
+			const hasDeleteItem = items.some(
+				(item) =>
+					item && typeof item === "object" && (item as Record<string, unknown>).delete === true,
+			);
+			if (hasDeleteItem && !opts.confirm) {
+				outputError(new ConfirmationRequiredError("inbox process-many with delete items").message);
+				process.exit(1);
+				return;
+			}
+
 			const results: BatchProcessResult[] = [];
 
 			for (let i = 0; i < items.length; i++) {
@@ -81,8 +92,12 @@ export function registerProcessManyCommand(parent: Command, client: OmniFocusCli
 					continue;
 				}
 
+				const processOptions = opts.confirm
+					? ({ ...(item as InboxProcessOptions), confirm: true } as InboxProcessOptions)
+					: (item as InboxProcessOptions);
+
 				try {
-					const response = await client.processInbox(item as InboxProcessOptions);
+					const response = await client.processInbox(processOptions);
 					const data = unwrapBridgeResponse(response);
 					results.push({
 						ok: true,

@@ -56,7 +56,7 @@ You must touch all three layers, in this order:
 - **`src/jxa/bridge.js` is pre-ES6 JXA** — only `var`, `function`, `for` loops. No `let`/`const`, arrow functions, template literals, or destructuring. It is excluded from Biome and TypeScript. Nearly every property read is wrapped in `try/catch` because OmniFocus objects throw when properties are inaccessible; catches return safe defaults. Date parsing is manual (`parseDate`) to avoid JXA timezone ambiguity.
 - **Fuzzy entity resolution** is three-tier (exact → case-insensitive substring → ambiguity error with candidates). Ambiguity is returned as an error with candidates, never silently guessed — disambiguation is pushed to the CLI layer.
 - **Dual-mode output**: `resolveFormat()` returns `"json"` if `--json` is passed OR stdout is not a TTY, else `"human"` (ANSI-colored). Piped commands auto-switch to JSON — commands just pass the resolved format through.
-- **Destructive verbs require `--confirm`** (`task delete`, `project delete`, `tag delete`, `task notification clear`), enforced via `ConfirmationRequiredError`.
+- **Destructive verbs require `--confirm`** (`task delete`, `project delete`, `tag delete`, `task notification clear`, `inbox process --delete`, `inbox process-many` with any `delete: true` item), enforced via `ConfirmationRequiredError`.
 - **Duration syntax** (`--offset`, `--repeat`): `[-+]?((\d+h)?(\d+m)?(\d+s)?)`, e.g. `-1h`, `30m`, `1h30m`, `90s`. Parsed by `parseDurationToSeconds`/`parseDurationOrClear`.
 - Use `parseIntOption()` for integer options, never `parseInt` directly — Commander's `(value, previous)` parser signature collides with `parseInt(string, radix)`.
 - Biome formatting: **tabs**, double quotes, semicolons, 100-col width.

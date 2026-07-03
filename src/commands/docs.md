@@ -19,7 +19,7 @@ Path: @/src/commands
 - **Dependency injection**: `OmniFocusClient` is created once in `@/src/index.ts` and threaded through registration. Commands are decoupled from client construction.
 - **Output format**: Most commands accept `--json` and use `resolveFormat()` to choose between human-readable formatting (`outputTaskDetail`, `formatTaskLine`, etc.) and raw JSON via `outputJson()`.
 - **Error handling**: Verb actions wrap their body in try/catch, catching `BridgeError` specifically and falling through to `outputError()` for user-facing messages.
-- **Confirmation guards**: every destructive verb (`task delete`, `project delete`, `tag delete`, `task notification clear`) checks `opts.confirm` and, if missing, reports via `new ConfirmationRequiredError(action).message` before exiting — all four derive the same message format instead of each hand-writing its own string.
+- **Confirmation guards**: every destructive verb (`task delete`, `project delete`, `tag delete`, `task notification clear`, `inbox process --delete`, `inbox process-many` when any stdin item has `delete: true`) checks `opts.confirm` and, if missing, reports via `new ConfirmationRequiredError(action).message` before exiting — all derive the same message format instead of each hand-writing its own string. `inbox process-many` scans the full parsed stdin array for a `delete: true` item before processing anything, so the guard rejects the whole batch up front rather than failing partway through.
 
 ### Things to Know
 - Verb files within a noun directory use short, non-prefixed names (`add.ts`, `list.ts`) since the noun context is already established by the parent subcommand. This means identically-named files exist across noun directories — the noun directory provides disambiguation.

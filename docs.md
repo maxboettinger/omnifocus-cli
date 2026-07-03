@@ -27,7 +27,7 @@ Three clean layers, each testable independently:
 
 - **CLI** (`src/commands/`): Commander.js wires args to client calls, formats output. Each noun (task, project, tag, folder, inbox, bulk) is a directory with one file per verb. Thin: parse args, call client, format output.
 - **Client** (`src/core/client.ts`): Implements `OmniFocusClient` interface. Each method maps to a bridge operation. All methods return `BridgeResponse<T>`. Injectable/mockable for tests.
-- **Bridge** (`src/core/bridge.ts` + `src/jxa/bridge.js`): `executeBridge()` calls `/usr/bin/osascript` with the unified JXA script. JSON command in, JSON response out. Single choke point for all OmniFocus communication.
+- **Bridge** (`src/core/bridge.ts` + `src/jxa/bridge.js`): `executeBridge()` calls `/usr/bin/osascript`, passing the JXA script source (embedded via a Bun text import, not a file path — required so the standalone compiled binary can find it) via `-e`. JSON command in, JSON response out. Single choke point for all OmniFocus communication.
 
 ### Command Structure
 
@@ -109,8 +109,8 @@ Operations: `task.create`, `task.get`, `task.update`, `task.complete`, `task.del
 - `CLIError` — Base class with exitCode
 - `BridgeError` — Wraps bridge `{ ok: false }` responses
 - `JXAExecutionError` — osascript process failure (timeout, crash, syntax error)
-- `NotFoundError`, `AmbiguousMatchError` — Task/project/tag lookup failures
-- `MissingArgumentError`, `ConfirmationRequiredError` — Input validation
+- `ConfirmationRequiredError` — Destructive verbs missing `--confirm`
+- Ambiguous/not-found lookup failures surface as `BridgeError` with `candidates?`, not a dedicated exception type
 
 ### Things to Know
 
@@ -120,7 +120,7 @@ Operations: `task.create`, `task.get`, `task.update`, `task.complete`, `task.del
 
 **Spoon budget is a fixed baseline of 20.** `forecast` hardcodes this and computes remaining spoons from today's tasks. Spoon costs map emoji to numeric values (frog=10, hard=7, medium=4, low=1.5, recharge=-5).
 
-**Performance pattern:** Read-heavy operations (forecast, list tasks, weekly review) use batch property access — reading all values for a property in a single Apple Event (`doc.flattenedTasks.name()`) — then indexing into arrays. Per-task calls deferred to a second pass over filtered results.
+**Performance pattern:** Read-heavy operations (forecast, task list, weekly review, stats) use batch property access — reading all values for a property in a single Apple Event (`doc.flattenedTasks.name()`) — then indexing into arrays, rather than calling a property accessor per task. This is required, not just faster: on large databases the per-task form issues one Apple Event per property per task and times out.
 
 **Task lookup cascade:** Tries ID first (fast path via `flattenedTasks.byId`), then exact name, then substring. On ambiguity, returns up to 5 candidates with IDs for disambiguation.
 
@@ -133,7 +133,7 @@ Operations: `task.create`, `task.get`, `task.update`, `task.complete`, `task.del
 ### Development
 
 ```bash
-bun test              # Run all tests (45 tests)
+bun test              # Run all tests
 bun run check         # Biome lint + format check
 bun run typecheck     # TypeScript strict checks
 bun run build         # Compile to single binary: ./of

@@ -42,6 +42,8 @@ src/jxa/bridge.js   (single JXA script) ──→ OmniFocus.app
 
 `OmniFocusClient` (interface in `src/core/types.ts`) is the seam. `createClient()` is called once in `src/index.ts` and threaded into every `register*Commands(program, client)`. Tests inject mock clients — **no OmniFocus or macOS required to run the suite**. Integration tests (`test/integration/`) verify the full parse-to-output flow against mocks.
 
+`src/jxa/bridge.js` has its own, lower-level test seam: `test/jxa/` evaluates the real script source against a stubbed JXA `Application` global (see `test/jxa/bridge-harness.ts`), exercising op handlers (`task.list`, `stats`, ...) directly — still no OmniFocus or macOS required.
+
 ### Adding a command that needs new OmniFocus data
 
 You must touch all three layers, in this order:
@@ -61,4 +63,4 @@ You must touch all three layers, in this order:
 
 ## Documentation
 
-Each `src/` subdirectory carries a `docs.md` ("Noridoc") describing that layer's design. Keep these current when changing a layer — the global instruction to keep docs up to date applies, and the `nori-docs` skill maintains them. The `skills/` directory holds user-facing OmniFocus agent skills (task, inbox, project, tag, forecast, plan workflows) that shell out to the `of` binary.
+Each `src/` subdirectory carries a `docs.md` ("Noridoc") describing that layer's design. Keep these current when changing a layer — the global instruction to keep docs up to date applies, and the `nori-docs` skill maintains them. The user-facing OmniFocus agent skill that shells out to the `of` binary lives outside this repo (`~/.agents/skills/omnifocus-cli/`).

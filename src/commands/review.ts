@@ -2,19 +2,20 @@ import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../core/client.js";
 import { BridgeError } from "../core/errors.js";
 import { bold, dim, green, outputError, outputJson, resolveFormat } from "../core/output.js";
+import { parseIntOption } from "../core/parsers.js";
 import type { OmniFocusClient } from "../core/types.js";
 
 export function registerReviewCommand(program: Command, client: OmniFocusClient): void {
 	program
 		.command("review")
 		.description("Weekly review report")
-		.option("--days <n>", "Number of days to review (default: 7)", "7")
+		.option("--days <n>", "Number of days to review", parseIntOption, 7)
 		.option("--json", "JSON output")
 		.action(async (opts: Record<string, unknown>, cmd: Command) => {
 			try {
 				const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);
 
-				const days = Number.parseInt((opts.days as string) || "7", 10);
+				const days = opts.days as number;
 
 				const response = await client.review({ days });
 				const data = unwrapBridgeResponse(response);
@@ -35,15 +36,6 @@ export function registerReviewCommand(program: Command, client: OmniFocusClient)
 				console.log(`  ⏱️  Total estimated: ${data.summary.totalEstimatedMinutes} minutes`);
 				console.log(`  🥄 Total spoons: ${data.summary.totalSpoons}`);
 				console.log("");
-
-				// By-purpose breakdown
-				if (Object.keys(data.summary.byPurpose).length > 0) {
-					console.log(bold("By Purpose"));
-					for (const [purpose, count] of Object.entries(data.summary.byPurpose)) {
-						console.log(`  ${purpose}: ${count} tasks`);
-					}
-					console.log("");
-				}
 
 				// By-spoon breakdown
 				if (Object.keys(data.summary.bySpoon).length > 0) {

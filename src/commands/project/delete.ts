@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
-import { BridgeError } from "../../core/errors.js";
+import { BridgeError, ConfirmationRequiredError } from "../../core/errors.js";
 import { bold, outputError, outputJson, outputSuccess, resolveFormat } from "../../core/output.js";
 import type { OmniFocusClient } from "../../core/types.js";
 
@@ -14,10 +14,10 @@ export function registerDeleteCommand(parent: Command, client: OmniFocusClient):
 		.option("--json", "JSON output")
 		.action(async (query: string, opts: Record<string, unknown>, cmd: Command) => {
 			try {
-				// Safety check: require --confirm flag
 				if (!opts.confirm) {
-					outputError("Delete operation requires --confirm flag for safety");
+					outputError(new ConfirmationRequiredError("project delete").message);
 					process.exit(1);
+					return;
 				}
 
 				const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);

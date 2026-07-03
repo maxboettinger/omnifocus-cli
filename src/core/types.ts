@@ -366,7 +366,6 @@ export interface ReviewResult {
 	completedTasks: Array<OFTask & { spoonCost: number | null; spoonEmoji: string | null }>;
 	summary: {
 		totalCompleted: number;
-		byPurpose: Record<string, number>;
 		bySpoon: Record<string, number>;
 		byProject: Record<string, number>;
 		byDay: Record<string, number>;

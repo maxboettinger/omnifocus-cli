@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../../core/client.js";
-import { BridgeError } from "../../../core/errors.js";
+import { BridgeError, ConfirmationRequiredError } from "../../../core/errors.js";
 import { outputError, outputJson, outputSuccess, resolveFormat } from "../../../core/output.js";
 import type { OmniFocusClient } from "../../../core/types.js";
 
@@ -15,7 +15,7 @@ export function registerClearCommand(parent: Command, client: OmniFocusClient): 
 		.action(async (query: string, opts: Record<string, unknown>, cmd: Command) => {
 			try {
 				if (!opts.confirm) {
-					outputError("Clear operation requires --confirm flag for safety");
+					outputError(new ConfirmationRequiredError("task notification clear").message);
 					process.exit(1);
 					return;
 				}

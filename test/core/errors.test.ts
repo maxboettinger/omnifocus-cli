@@ -1,12 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
-	AmbiguousMatchError,
 	BridgeError,
 	CLIError,
 	ConfirmationRequiredError,
 	JXAExecutionError,
-	MissingArgumentError,
-	NotFoundError,
 } from "../../src/core/errors.js";
 
 describe("CLIError", () => {
@@ -60,31 +57,6 @@ describe("JXAExecutionError", () => {
 		const err = new JXAExecutionError("osascript failed", "syntax error on line 5");
 		expect(err.stderr).toBe("syntax error on line 5");
 		expect(err).toBeInstanceOf(CLIError);
-	});
-});
-
-describe("AmbiguousMatchError", () => {
-	test("builds message from entity, query, and candidates", () => {
-		const err = new AmbiguousMatchError("task", "groceries", ["Buy groceries", "Get groceries"]);
-		expect(err.message).toContain("task");
-		expect(err.message).toContain("groceries");
-		expect(err.candidates).toEqual(["Buy groceries", "Get groceries"]);
-	});
-});
-
-describe("NotFoundError", () => {
-	test("builds message from entity and query", () => {
-		const err = new NotFoundError("project", "Home Reno");
-		expect(err.message).toContain("project");
-		expect(err.message).toContain("Home Reno");
-	});
-});
-
-describe("MissingArgumentError", () => {
-	test("has exit code 2", () => {
-		const err = new MissingArgumentError("name");
-		expect(err.exitCode).toBe(2);
-		expect(err.message).toContain("name");
 	});
 });
 

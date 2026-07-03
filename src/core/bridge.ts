@@ -7,14 +7,17 @@
  */
 
 import { execFile } from "node:child_process";
-import { resolve } from "node:path";
 import { promisify } from "node:util";
+// Embedded as text so the compiled standalone binary carries the script;
+// a filesystem path would point into Bun's virtual /$bunfs/, invisible to osascript.
+import rawBridgeSource from "../jxa/bridge.js" with { type: "text" };
 import { JXAExecutionError } from "./errors.js";
 import type { BridgeCommand, BridgeResponse } from "./types.js";
 
 const execFileAsync = promisify(execFile);
 
-const BRIDGE_SCRIPT = resolve(import.meta.dirname, "../jxa/bridge.js");
+// osascript -e does not strip the shebang the way it does for script files
+const BRIDGE_SOURCE = rawBridgeSource.replace(/^#![^\n]*\n/, "");
 const OSASCRIPT = "/usr/bin/osascript";
 const DEFAULT_TIMEOUT_MS = 30_000;
 
@@ -34,7 +37,7 @@ export async function executeBridge<T = unknown>(
 	const commandJson = JSON.stringify(command);
 
 	try {
-		const args = ["-l", "JavaScript", BRIDGE_SCRIPT, commandJson];
+		const args = ["-l", "JavaScript", "-e", BRIDGE_SOURCE, commandJson];
 
 		const childOpts: { timeout: number; maxBuffer: number; input?: string } = {
 			timeout: timeoutMs,
@@ -91,16 +94,4 @@ export async function executeBridge<T = unknown>(
 
 		throw new JXAExecutionError(`JXA execution failed: ${err.message ?? "unknown error"}`, "");
 	}
-}
-
-/**
- * Convenience: execute bridge and unwrap data, throwing on error responses.
- */
-export async function executeBridgeOrThrow<T>(
-	command: BridgeCommand,
-	opts?: { timeoutMs?: number; stdin?: string },
-): Promise<T> {
-	const { unwrapBridgeResponse } = await import("./client.js");
-	const response = await executeBridge<T>(command, opts);
-	return unwrapBridgeResponse(response);
 }

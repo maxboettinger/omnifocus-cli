@@ -606,8 +606,10 @@ ops["task.list"] = function(of, doc, p) {
         var dueDates = inbox.dueDate(), deferDates = inbox.deferDate(), flagged = inbox.flagged();
         var estimates = inbox.estimatedMinutes(), completed = inbox.completed();
         var plannedDates; try { plannedDates = inbox.plannedDate(); } catch(e) { plannedDates = []; }
-        var tasks = inbox(), count = Math.min(names.length, limit), results = [];
-        for (var i = 0; i < count; i++) {
+        // limit caps returned results, not the scan window — completed tasks
+        // linger in inboxTasks and may fill the front of the collection
+        var tasks = inbox(), results = [];
+        for (var i = 0; i < names.length && results.length < limit; i++) {
             if (completed[i]) continue;
             var task = tasks[i], tagNames = [];
             try { tagNames = task.tags().map(function(t) { return t.name(); }); } catch(e) {}
@@ -642,22 +644,30 @@ ops["task.list"] = function(of, doc, p) {
     }
 
     // Non-inbox filters
+    if (filter !== "flagged" && filter !== "available" && filter !== "due-soon" && filter !== "overdue" && filter !== "all") {
+        return fail("Unknown filter: " + filter);
+    }
     var now = new Date(), threeDays = new Date();
     threeDays.setDate(threeDays.getDate() + 3);
-    var allTasks = doc.flattenedTasks(), results = [];
-    for (var i = 0; i < allTasks.length && results.length < limit; i++) {
-        var t = allTasks[i];
-        if (t.completed()) continue;
+    // Batch property access — per-task Apple Events time out on large databases
+    var ft = doc.flattenedTasks;
+    var allCompleted = ft.completed(), allFlagged = ft.flagged(), allDueDates = ft.dueDate();
+    var allBlocked; try { allBlocked = ft.blocked(); } catch(e) { allBlocked = []; }
+    var taskRefs = null, results = [];
+    for (var i = 0; i < allCompleted.length && results.length < limit; i++) {
+        if (allCompleted[i]) continue;
         var include = false;
         switch (filter) {
-            case "flagged": include = t.flagged(); break;
-            case "available": var bl = false; try { bl = t.blocked(); } catch(e) {} include = !bl; break;
-            case "due-soon": var dd = t.dueDate(); include = dd && dd < threeDays && dd >= now; break;
-            case "overdue": var dd2 = t.dueDate(); include = dd2 && dd2 < now; break;
+            case "flagged": include = allFlagged[i]; break;
+            case "available": include = !(allBlocked.length > i && allBlocked[i]); break;
+            case "due-soon": var dd = allDueDates[i]; include = dd && dd < threeDays && dd >= now; break;
+            case "overdue": var dd2 = allDueDates[i]; include = dd2 && dd2 < now; break;
             case "all": include = true; break;
-            default: return fail("Unknown filter: " + filter);
         }
-        if (include) results.push(formatTask(t));
+        if (include) {
+            if (!taskRefs) taskRefs = ft();
+            results.push(formatTask(taskRefs[i]));
+        }
     }
     if (p.includeNotifications) {
         var attach = attachNotificationsToTasks(of, results);
@@ -1084,18 +1094,17 @@ ops["inbox.list"] = function(of, doc, p) {
 
 ops["inbox.add"] = function(of, doc, p) {
     if (!p.name) return fail("Task name required");
+    var targetProject = null;
     if (p.project) {
         var lookup = findExistingProject(doc, p.project);
         if (lookup.error) return fail(lookup.error, lookup.candidates ? { candidates: lookup.candidates } : {});
+        targetProject = lookup.project;
     }
     var tp = { name: p.name }; if (p.note) tp.note = p.note;
     var task = of.InboxTask(tp); doc.inboxTasks.push(task);
     var changes = applyTaskProps(of, doc, task, p);
     var warnings = extractWarnings(changes);
-    if (p.project) {
-        var pl = findExistingProject(doc, p.project);
-        if (pl.project) task.assignedContainer = pl.project;
-    }
+    if (targetProject) task.assignedContainer = targetProject;
     return ok({ id: task.id(), name: task.name(), task: formatTask(task), changes: changes, warnings: warnings });
 };
 
@@ -1322,7 +1331,7 @@ ops["review"] = function(of, doc, p) {
     var total = allCompleted.length;
 
     var taskRefs = ft();
-    var completedTasks = [], byPurpose = {}, bySpoon = {}, byProject = {}, byDay = {};
+    var completedTasks = [], bySpoon = {}, byProject = {}, byDay = {};
     var totalEst = 0, totalSpoons = 0;
 
     for (var i = 0; i < total; i++) {
@@ -1365,7 +1374,7 @@ ops["review"] = function(of, doc, p) {
     return ok({
         meta: { generatedAt: now.toISOString(), periodStart: cutoff.toISOString(), periodEnd: now.toISOString(), daysReviewed: days },
         completedTasks: completedTasks,
-        summary: { totalCompleted: completedTasks.length, byPurpose: byPurpose, bySpoon: bySpoon, byProject: byProject, byDay: byDay, totalEstimatedMinutes: totalEst, totalSpoons: totalSpoons },
+        summary: { totalCompleted: completedTasks.length, bySpoon: bySpoon, byProject: byProject, byDay: byDay, totalEstimatedMinutes: totalEst, totalSpoons: totalSpoons },
         projectProgress: projectProgress
     });
 };
@@ -1374,24 +1383,33 @@ ops["review"] = function(of, doc, p) {
 
 ops["stats"] = function(of, doc) {
     var now = new Date(), threeDays = new Date(); threeDays.setDate(threeDays.getDate() + 3);
-    var ft = doc.flattenedTasks(), inbox = doc.inboxTasks();
-    var total = 0, incomplete = 0, completed = 0, flagged = 0, overdue = 0, dueSoon = 0;
+    // Batch property access — per-task Apple Events time out on large databases
+    var ft = doc.flattenedTasks;
+    var allCompleted = ft.completed(), allFlagged = ft.flagged(), allDueDates = ft.dueDate();
+    var allEstimates; try { allEstimates = ft.estimatedMinutes(); } catch(e) { allEstimates = []; }
+    var allBlocked; try { allBlocked = ft.blocked(); } catch(e) { allBlocked = []; }
+    var allRepetition; try { allRepetition = ft.repetitionRule(); } catch(e) { allRepetition = []; }
+    var allSequential; try { allSequential = ft.sequential(); } catch(e) { allSequential = []; }
+    var total = allCompleted.length, incomplete = 0, completed = 0, flagged = 0, overdue = 0, dueSoon = 0;
     var available = 0, blocked = 0, withEst = 0, totalEst = 0, repeating = 0, sequential = 0;
 
-    for (var i = 0; i < ft.length; i++) {
-        total++;
-        if (ft[i].completed()) { completed++; continue; }
+    for (var i = 0; i < total; i++) {
+        if (allCompleted[i]) { completed++; continue; }
         incomplete++;
-        if (ft[i].flagged()) flagged++;
-        var dd = ft[i].dueDate();
+        if (allFlagged[i]) flagged++;
+        var dd = allDueDates[i];
         if (dd) { if (dd < now) overdue++; else if (dd < threeDays) dueSoon++; }
-        var bl = false; try { bl = ft[i].blocked(); } catch(e) {}
-        if (bl) blocked++; else available++;
-        var est = ft[i].estimatedMinutes();
+        if (allBlocked.length > i && allBlocked[i]) blocked++; else available++;
+        var est = allEstimates.length > i ? allEstimates[i] : null;
         if (est) { withEst++; totalEst += est; }
-        try { if (ft[i].repetitionRule()) repeating++; } catch(e) {}
-        try { if (ft[i].sequential()) sequential++; } catch(e) {}
+        if (allRepetition.length > i && allRepetition[i]) repeating++;
+        if (allSequential.length > i && allSequential[i]) sequential++;
     }
+
+    // Count only unprocessed (incomplete) inbox items — completed tasks
+    // linger in inboxTasks until cleanup and would inflate the number
+    var inboxCompleted = doc.inboxTasks.completed(), inboxCount = 0;
+    for (var ii = 0; ii < inboxCompleted.length; ii++) { if (!inboxCompleted[ii]) inboxCount++; }
 
     var projects = doc.flattenedProjects();
     var pTotal = 0, pActive = 0, pOnHold = 0, pCompleted = 0, pDropped = 0;
@@ -1407,7 +1425,7 @@ ops["stats"] = function(of, doc) {
     }
 
     return ok({
-        tasks: { total: total, incomplete: incomplete, completed: completed, inbox: inbox.length, flagged: flagged, overdue: overdue, dueSoon: dueSoon, available: available, blocked: blocked, withEstimates: withEst, totalEstimatedMinutes: totalEst, repeating: repeating, sequential: sequential },
+        tasks: { total: total, incomplete: incomplete, completed: completed, inbox: inboxCount, flagged: flagged, overdue: overdue, dueSoon: dueSoon, available: available, blocked: blocked, withEstimates: withEst, totalEstimatedMinutes: totalEst, repeating: repeating, sequential: sequential },
         projects: { total: pTotal, active: pActive, onHold: pOnHold, completed: pCompleted, dropped: pDropped }
     });
 };

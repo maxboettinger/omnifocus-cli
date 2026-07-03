@@ -58,33 +58,6 @@ export class JXAExecutionError extends CLIError {
 	}
 }
 
-/** Multiple entities matched a query — user must disambiguate. */
-export class AmbiguousMatchError extends BridgeError {
-	constructor(entity: string, query: string, candidates: BridgeCandidate[]) {
-		super(
-			`Ambiguous: multiple ${entity}s match "${query}". Be more specific or use --id.`,
-			candidates,
-		);
-		this.name = "AmbiguousMatchError";
-	}
-}
-
-/** Entity not found. */
-export class NotFoundError extends BridgeError {
-	constructor(entity: string, query: string) {
-		super(`${entity} not found: "${query}"`);
-		this.name = "NotFoundError";
-	}
-}
-
-/** Required argument missing. */
-export class MissingArgumentError extends CLIError {
-	constructor(argName: string) {
-		super(`Missing required argument: ${argName}`, 2);
-		this.name = "MissingArgumentError";
-	}
-}
-
 /** Destructive operation requires --confirm. */
 export class ConfirmationRequiredError extends CLIError {
 	constructor(action: string) {

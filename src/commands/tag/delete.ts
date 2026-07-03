@@ -1,6 +1,6 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
-import { BridgeError } from "../../core/errors.js";
+import { BridgeError, ConfirmationRequiredError } from "../../core/errors.js";
 import { outputError, outputJson, outputSuccess, resolveFormat } from "../../core/output.js";
 import type { OmniFocusClient } from "../../core/types.js";
 
@@ -14,8 +14,9 @@ export function registerDeleteCommand(parent: Command, client: OmniFocusClient):
 		.action(async (name: string, opts: Record<string, unknown>, cmd: Command) => {
 			try {
 				if (!opts.confirm) {
-					console.error("Error: --confirm flag is required for tag deletion");
+					outputError(new ConfirmationRequiredError("tag delete").message);
 					process.exit(1);
+					return;
 				}
 
 				const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);

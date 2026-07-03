@@ -13,13 +13,14 @@ import {
 	resolveFormat,
 	yellow,
 } from "../core/output.js";
+import { parseIntOption } from "../core/parsers.js";
 import type { OmniFocusClient } from "../core/types.js";
 
 export function registerForecastCommand(program: Command, client: OmniFocusClient): void {
 	program
 		.command("forecast")
 		.description("Show today's categorized task view")
-		.option("--days <n>", "Number of days to include (default: 3)", "3")
+		.option("--days <n>", "Number of days to include", parseIntOption, 3)
 		.option("--include-flagged", "Include flagged tasks")
 		.option("--include-available", "Include available tasks")
 		.option("--json", "JSON output")
@@ -27,7 +28,7 @@ export function registerForecastCommand(program: Command, client: OmniFocusClien
 			try {
 				const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);
 
-				const days = Number.parseInt((opts.days as string) || "3", 10);
+				const days = opts.days as number;
 				const includeFlagged = opts.includeFlagged as boolean;
 				const includeAvailable = opts.includeAvailable as boolean;
 

@@ -1041,14 +1041,20 @@ ops["tag.list"] = function(of, doc, p) {
     for (var i = 0; i < tags.length; i++) {
         var tag = tags[i];
         if (p.search && tag.name().toLowerCase().indexOf(p.search.toLowerCase()) === -1) continue;
+        // Batch property access — per-task Apple Events time out on large databases.
+        // Read once per tag (not per task) via the tasks specifier, not tag.tasks().
+        var completedFlags = null;
+        if (p.activeOnly || p.count) {
+            try { completedFlags = tag.tasks.completed(); } catch(e) { completedFlags = []; }
+        }
         if (p.activeOnly) {
             var hasActive = false;
-            try { var ts = tag.tasks(); for (var j = 0; j < ts.length; j++) { if (!ts[j].completed()) { hasActive = true; break; } } } catch(e) {}
+            for (var j = 0; j < completedFlags.length; j++) { if (!completedFlags[j]) { hasActive = true; break; } }
             if (!hasActive) continue;
         }
         if (p.count) {
-            var tc = 0, ac = 0;
-            try { var ts = tag.tasks(); tc = ts.length; for (var k = 0; k < ts.length; k++) { if (!ts[k].completed()) ac++; } } catch(e) {}
+            var tc = completedFlags.length, ac = 0;
+            for (var k = 0; k < completedFlags.length; k++) { if (!completedFlags[k]) ac++; }
             results.push({ name: tag.name(), id: tag.id(), taskCount: tc, activeTaskCount: ac });
         } else {
             results.push(tag.name());
@@ -1082,9 +1088,16 @@ ops["tag.tasks"] = function(of, doc, p) {
     if (!p.tagName) return fail("Tag name required");
     var lookup = findExistingTag(doc, p.tagName);
     if (lookup.error) return fail(lookup.error, lookup.candidates ? { candidates: lookup.candidates } : {});
-    var tasks = lookup.tag.tasks(), limit = p.limit || 50, results = [];
-    for (var i = 0; i < tasks.length && results.length < limit; i++) {
-        if (!tasks[i].completed()) results.push(formatTask(tasks[i]));
+    var limit = p.limit || 50, results = [];
+    // Batch property access — per-task Apple Events time out on large databases.
+    // Read completed() once via the tasks specifier (not per materialized ref),
+    // then materialize refs once and formatTask() only surviving indices.
+    var completedFlags; try { completedFlags = lookup.tag.tasks.completed(); } catch(e) { completedFlags = []; }
+    var refs = null;
+    for (var i = 0; i < completedFlags.length && results.length < limit; i++) {
+        if (completedFlags[i]) continue;
+        if (!refs) refs = lookup.tag.tasks();
+        results.push(formatTask(refs[i]));
     }
     return ok(results);
 };
@@ -1408,8 +1421,10 @@ ops["review"] = function(of, doc, p) {
     for (var j = 0; j < projects.length; j++) {
         var pj = projects[j];
         try { if (pj.status().toString() !== "active status") continue; } catch(e) {}
-        var tasks = pj.flattenedTasks(), tc = tasks.length, cc = 0;
-        for (var k = 0; k < tasks.length; k++) { if (tasks[k].completed()) cc++; }
+        // Batch property access — per-task Apple Events time out on large databases
+        var pjCompleted; try { pjCompleted = pj.flattenedTasks.completed(); } catch(e) { pjCompleted = []; }
+        var tc = pjCompleted.length, cc = 0;
+        for (var k = 0; k < tc; k++) { if (pjCompleted[k]) cc++; }
         if (tc > 0) projectProgress.push({ name: pj.name(), taskCount: tc, completedCount: cc, percentage: Math.round((cc / tc) * 100) });
     }
 

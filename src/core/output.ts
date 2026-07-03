@@ -71,6 +71,17 @@ export function outputWarning(message: string): void {
 	console.error(`${yellow("!")} ${message}`);
 }
 
+/**
+ * Warn (on stderr, so stdout stays parseable) that a list filled its limit
+ * and more items may exist.
+ */
+export function outputLimitNotice(count: number, limit: number): void {
+	if (count !== limit) return;
+	console.error(
+		`${yellow("!")} showing ${count} items (limit reached) — pass --limit <n> for more`,
+	);
+}
+
 // ── Task formatting ─────────────────────────────────────────────────────────
 
 export function formatTaskLine(task: OFTask): string {

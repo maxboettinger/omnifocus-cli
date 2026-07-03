@@ -698,6 +698,60 @@ describe("inbox commands", () => {
 		});
 		expect(secondCall[0]).toMatchObject({ id: "inbox-2", complete: true });
 	});
+
+	test("inbox list defaults to a limit of 50", async () => {
+		const c = createMockClient();
+		await runCommand(registerInboxCommands, ["inbox", "list", "--json"], c);
+		expect(c.listInbox).toHaveBeenCalledWith(50, { newestFirst: undefined });
+	});
+
+	test("inbox list passes --newest-first through to the client", async () => {
+		const c = createMockClient();
+		await runCommand(registerInboxCommands, ["inbox", "list", "--newest-first", "--json"], c);
+		expect(c.listInbox).toHaveBeenCalledWith(50, { newestFirst: true });
+	});
+
+	test("inbox list warns on stderr when the limit is filled", async () => {
+		const c = createMockClient();
+		const tasks = [MOCK_TASK, { ...MOCK_TASK, id: "task-2" }];
+		(c.listInbox as ReturnType<typeof mock>).mockImplementation(() =>
+			Promise.resolve(successResponse(tasks)),
+		);
+		const { stdout, stderr } = await runCommand(
+			registerInboxCommands,
+			["inbox", "list", "--limit", "2", "--json"],
+			c,
+		);
+		// stdout stays a clean JSON array; the notice goes to stderr
+		expect(JSON.parse(stdout.join("\n"))).toHaveLength(2);
+		expect(stderr.some((line) => line.includes("--limit"))).toBeTrue();
+	});
+
+	test("inbox list prints no limit notice when results are under the limit", async () => {
+		const { stderr } = await runCommand(registerInboxCommands, [
+			"inbox",
+			"list",
+			"--limit",
+			"5",
+			"--json",
+		]);
+		expect(stderr).toHaveLength(0);
+	});
+});
+
+describe("task list limit notice", () => {
+	test("task list warns on stderr when the limit is filled", async () => {
+		const c = createMockClient();
+		(c.listTasks as ReturnType<typeof mock>).mockImplementation(() =>
+			Promise.resolve(successResponse([MOCK_TASK])),
+		);
+		const { stderr } = await runCommand(
+			registerTaskCommands,
+			["task", "list", "--limit", "1", "--json"],
+			c,
+		);
+		expect(stderr.some((line) => line.includes("--limit"))).toBeTrue();
+	});
 });
 
 // ── Stats command ───────────────────────────────────────────────────────────

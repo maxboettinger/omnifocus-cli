@@ -1,7 +1,12 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
 import { BridgeError } from "../../core/errors.js";
-import { outputError, outputTaskList, resolveFormat } from "../../core/output.js";
+import {
+	outputError,
+	outputLimitNotice,
+	outputTaskList,
+	resolveFormat,
+} from "../../core/output.js";
 import { parseIntOption } from "../../core/parsers.js";
 import type { OmniFocusClient, TaskFilter } from "../../core/types.js";
 
@@ -28,6 +33,7 @@ export function registerListCommand(parent: Command, client: OmniFocusClient): v
 
 				const tasks = unwrapBridgeResponse(response);
 				outputTaskList(tasks, format);
+				outputLimitNotice(tasks.length, opts.limit as number);
 			} catch (error) {
 				if (error instanceof BridgeError) {
 					outputError(error.format());

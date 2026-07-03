@@ -597,7 +597,7 @@ ops["task.delete"] = function(of, doc, p) {
 };
 ops["task.list"] = function(of, doc, p) {
     var filter = p.filter || "available";
-    var limit = p.limit || (filter === "inbox" ? 500 : 20);
+    var limit = p.limit || (filter === "inbox" ? 50 : 20);
 
     if (filter === "inbox") {
         // Batch property access for performance
@@ -606,18 +606,29 @@ ops["task.list"] = function(of, doc, p) {
         var dueDates = inbox.dueDate(), deferDates = inbox.deferDate(), flagged = inbox.flagged();
         var estimates = inbox.estimatedMinutes(), completed = inbox.completed();
         var plannedDates; try { plannedDates = inbox.plannedDate(); } catch(e) { plannedDates = []; }
+        var creationDates; try { creationDates = inbox.creationDate(); } catch(e) { creationDates = []; }
         // limit caps returned results, not the scan window — completed tasks
         // linger in inboxTasks and may fill the front of the collection
+        var order = [];
+        for (var oi = 0; oi < names.length; oi++) { if (!completed[oi]) order.push(oi); }
+        if (p.newestFirst) {
+            // sort before limiting, so --limit N returns the N newest items
+            order.sort(function(a, b) {
+                var ca = creationDates.length > a && creationDates[a] ? creationDates[a].getTime() : 0;
+                var cb = creationDates.length > b && creationDates[b] ? creationDates[b].getTime() : 0;
+                return cb - ca;
+            });
+        }
         var tasks = inbox(), results = [];
-        for (var i = 0; i < names.length && results.length < limit; i++) {
-            if (completed[i]) continue;
+        for (var n = 0; n < order.length && results.length < limit; n++) {
+            var i = order[n];
             var task = tasks[i], tagNames = [];
             try { tagNames = task.tags().map(function(t) { return t.name(); }); } catch(e) {}
             var rep = null;
             try { var rr = task.repetitionRule(); if (rr) { var m = null; try { m = rr.method(); } catch(e2) {} rep = { rule: rr.recurrenceString(), method: m }; } } catch(e) {}
             var seq = false; try { seq = task.sequential(); } catch(e) {}
             var cc = 0; try { cc = task.tasks().length; } catch(e) {}
-            var cd = null; try { var cdt = task.creationDate(); if (cdt) cd = cdt.toISOString(); } catch(e) {}
+            var cd = creationDates.length > i && creationDates[i] ? creationDates[i].toISOString() : null;
             var md = null; try { var mdt = task.modificationDate(); if (mdt) md = mdt.toISOString(); } catch(e) {}
             var pl = plannedDates.length > i ? plannedDates[i] : null;
             results.push({
@@ -1089,7 +1100,7 @@ ops["folder.list"] = function(of, doc, p) {
 // ── Inbox operations ────────────────────────────────────────────────────
 
 ops["inbox.list"] = function(of, doc, p) {
-    return ops["task.list"](of, doc, { filter: "inbox", limit: p.limit || 500 });
+    return ops["task.list"](of, doc, { filter: "inbox", limit: p.limit || 50, newestFirst: !!p.newestFirst });
 };
 
 ops["inbox.add"] = function(of, doc, p) {

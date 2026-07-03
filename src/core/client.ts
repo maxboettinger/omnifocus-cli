@@ -177,8 +177,8 @@ export function createClient(): OmniFocusClient {
 
 		// ── Inbox ─────────────────────────────────────────────────────
 
-		async listInbox(limit?: number) {
-			return executeBridge(cmd("inbox.list", { limit }));
+		async listInbox(limit?: number, opts?: { newestFirst?: boolean }) {
+			return executeBridge(cmd("inbox.list", { limit, ...opts }));
 		},
 
 		async addInbox(opts: TaskCreateOptions) {

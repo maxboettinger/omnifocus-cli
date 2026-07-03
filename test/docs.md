@@ -27,5 +27,6 @@ Path: @/test
 - The `test/commands/` and `test/services/` directories exist but are currently empty — all command-level testing lives in `test/integration/cli.test.ts` as a single integration file rather than per-command test files.
 - Coverage still excludes bridge transport (`@/src/core/bridge.ts`, the `osascript` spawn itself), forecast output, review output, and bulk operation formatting — these still require real OmniFocus interaction or more elaborate mocking. The JXA script (`@/src/jxa/bridge.js`) is no longer excluded: `test/jxa/` covers its op handlers directly via the harness above.
 - Integration coverage includes `task notification list|add|update|delete|clear`, plus validation guards (`--confirm`, kind-specific requirements, required mutation flags).
+- Integration coverage also includes the stderr limit notice (asserting it's absent from stdout's JSON and present in captured stderr lines when a list result fills its `--limit`) and that `inbox list`'s `--newest-first` flag and 50-item default limit are passed through to the client unchanged. `test/jxa/task-list.test.ts` covers the corresponding bridge-side behavior — that `newestFirst` sorts the inbox by creation date before `limit` is applied, using the harness's `makeElementArray` to stub batch `creationDate()` reads.
 
 Created and maintained by Nori.

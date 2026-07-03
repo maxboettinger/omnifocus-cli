@@ -122,6 +122,23 @@ describe("task.list inbox filter", () => {
 		expect(names).toEqual(["open-0", "open-1"]);
 	});
 
+	test("newestFirst sorts by creation date before applying the limit", () => {
+		const dated = [
+			{ ...inboxEntry("old", false), creationDate: new Date("2026-01-01") },
+			{ ...inboxEntry("done-new", true), creationDate: new Date("2026-07-01") },
+			{ ...inboxEntry("newest", false), creationDate: new Date("2026-06-30") },
+			{ ...inboxEntry("middle", false), creationDate: new Date("2026-03-15") },
+		];
+		const response = runBridge({ inboxTasks: makeElementArray(dated) }, "task.list", {
+			filter: "inbox",
+			limit: 2,
+			newestFirst: true,
+		});
+		expect(response.ok).toBe(true);
+		const names = (response.data as Array<{ name: string }>).map((t) => t.name);
+		expect(names).toEqual(["newest", "middle"]);
+	});
+
 	test("default limit returns all incomplete tasks even past 500 raw entries", () => {
 		const bigEntries = [
 			...Array.from({ length: 600 }, (_, i) => inboxEntry(`done-${i}`, true)),

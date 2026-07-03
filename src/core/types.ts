@@ -602,7 +602,7 @@ export interface OmniFocusClient {
 	listFolders(opts: FolderListOptions): Promise<BridgeResponse<(string | OFFolder)[]>>;
 
 	// Inbox
-	listInbox(limit?: number): Promise<BridgeResponse<OFTask[]>>;
+	listInbox(limit?: number, opts?: { newestFirst?: boolean }): Promise<BridgeResponse<OFTask[]>>;
 	addInbox(opts: TaskCreateOptions): Promise<
 		BridgeResponse<{
 			id: string;

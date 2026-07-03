@@ -568,6 +568,24 @@ ops["task.complete"] = function(of, doc, p) {
         findResult = { task: found };
     } else {
         findResult = findTaskByQuery(doc, p.query, { searchCompleted: p.incomplete });
+        if (findResult.error && !findResult.candidates) {
+            // A bare "not found" is misleading when the task exists in the opposite
+            // completion state — search/list also hide completed tasks, so this is
+            // the caller's only chance to learn the task is already done.
+            var alt = findTaskByQuery(doc, p.query, { searchCompleted: !p.incomplete });
+            if (alt.task) {
+                if (p.incomplete) {
+                    return fail("Task is already incomplete: \"" + alt.task.name() + "\" (id: " + alt.task.id() + ")");
+                }
+                var doneAt = null;
+                try { var cdd = alt.task.completionDate(); if (cdd) doneAt = cdd.toISOString(); } catch(e) {}
+                return fail("Task already completed: \"" + alt.task.name() + "\"" + (doneAt ? " (completed " + doneAt + ")" : "") + " (id: " + alt.task.id() + ")");
+            }
+            if (alt.candidates) {
+                var altState = p.incomplete ? "incomplete" : "completed";
+                return fail("No " + (p.incomplete ? "completed" : "incomplete") + " task matches \"" + p.query + "\", but " + altState + " tasks do", { candidates: alt.candidates });
+            }
+        }
     }
     if (findResult.error) return fail(findResult.error, findResult.candidates ? { candidates: findResult.candidates } : {});
     var task = findResult.task, action;

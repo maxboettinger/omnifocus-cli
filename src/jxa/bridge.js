@@ -179,9 +179,11 @@ function formatProject(project) {
     try { tagNames = project.tags().map(function(t) { return t.name(); }); } catch(e) {}
     var taskCount = 0, completedTaskCount = 0;
     try {
-        var tasks = project.flattenedTasks();
-        taskCount = tasks.length;
-        for (var i = 0; i < tasks.length; i++) { if (tasks[i].completed()) completedTaskCount++; }
+        // Batch property access — per-task Apple Events time out on large databases
+        var pt = project.flattenedTasks;
+        var ptCompleted = pt.completed();
+        taskCount = ptCompleted.length;
+        for (var i = 0; i < ptCompleted.length; i++) { if (ptCompleted[i]) completedTaskCount++; }
     } catch(e) {}
     var status = "active";
     try { var s = project.status(); if (s) status = s.toString().replace(" status", "").toLowerCase(); } catch(e) {}
@@ -205,7 +207,8 @@ function formatProject(project) {
 
 function formatProjectCompact(project) {
     var taskCount = 0;
-    try { taskCount = project.flattenedTasks().length; } catch(e) {}
+    // Batch property access avoids materializing per-task refs just for .length
+    try { taskCount = project.flattenedTasks.completed().length; } catch(e) {}
     var status = "active";
     try { var s = project.status(); if (s) status = s.toString().replace(" status", "").toLowerCase(); } catch(e) {}
     return { id: project.id(), name: project.name(), status: status, taskCount: taskCount };
@@ -903,9 +906,11 @@ ops["project.get"] = function(of, doc, p) {
     // Add computed fields
     var overdueCount = 0, now = new Date();
     try {
-        var tasks = project.flattenedTasks();
-        for (var j = 0; j < tasks.length; j++) {
-            if (!tasks[j].completed() && tasks[j].dueDate() && tasks[j].dueDate() < now) overdueCount++;
+        // Batch property access — per-task Apple Events time out on large databases
+        var opt = project.flattenedTasks;
+        var optCompleted = opt.completed(), optDueDates = opt.dueDate();
+        for (var j = 0; j < optCompleted.length; j++) {
+            if (!optCompleted[j] && optDueDates[j] && optDueDates[j] < now) overdueCount++;
         }
     } catch(e) {}
     result.overdueCount = overdueCount;
@@ -935,7 +940,12 @@ ops["project.list"] = function(of, doc, p) {
         }
         if (p.activeOnly) {
             var hasIncomplete = false;
-            try { var ts = proj.flattenedTasks(); for (var k = 0; k < ts.length; k++) { if (!ts[k].completed()) { hasIncomplete = true; break; } } } catch(e) {}
+            // Batch property access — per-task Apple Events time out on large databases
+            try {
+                var apt = proj.flattenedTasks;
+                var aptCompleted = apt.completed();
+                for (var k = 0; k < aptCompleted.length; k++) { if (!aptCompleted[k]) { hasIncomplete = true; break; } }
+            } catch(e) {}
             if (!hasIncomplete) continue;
         }
         if (p.full) results.push(formatProject(proj));

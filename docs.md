@@ -120,7 +120,7 @@ Operations: `task.create`, `task.get`, `task.update`, `task.complete`, `task.del
 
 **Spoon budget is a fixed baseline of 20.** `forecast` hardcodes this and computes remaining spoons from today's tasks. Spoon costs map emoji to numeric values (frog=10, hard=7, medium=4, low=1.5, recharge=-5).
 
-**Performance pattern:** Read-heavy operations (forecast, task list, weekly review, stats) use batch property access — reading all values for a property in a single Apple Event (`doc.flattenedTasks.name()`) — then indexing into arrays, rather than calling a property accessor per task. This is required, not just faster: on large databases the per-task form issues one Apple Event per property per task and times out.
+**Performance pattern:** Read-heavy operations (forecast, task list, weekly review, stats, project get/list) use batch property access — reading all values for a property in a single Apple Event (`doc.flattenedTasks.name()`, or `project.flattenedTasks.completed()` scoped to one project) — then indexing into arrays, rather than calling a property accessor per task. This is required, not just faster: on large databases the per-task form issues one Apple Event per property per task and times out.
 
 **Task lookup cascade:** Tries ID first (fast path via `flattenedTasks.byId`), then exact name, then substring. On ambiguity, returns up to 5 candidates with IDs for disambiguation.
 

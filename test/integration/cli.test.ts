@@ -852,6 +852,86 @@ describe("task list limit notice", () => {
 	});
 });
 
+// ── Task search limit notice ────────────────────────────────────────────────
+
+describe("task search limit notice", () => {
+	test("task search defaults to a limit of 50", async () => {
+		const c = createMockClient();
+		await runCommand(registerTaskCommands, ["task", "search", "test", "--json"], c);
+		expect(c.searchTasks).toHaveBeenCalledWith("test", 50);
+	});
+
+	test("task search warns on stderr when the limit is filled", async () => {
+		const c = createMockClient();
+		const tasks = Array.from({ length: 50 }, (_, i) => ({
+			...MOCK_TASK,
+			id: `task-${i}`,
+		}));
+		(c.searchTasks as ReturnType<typeof mock>).mockImplementation(() =>
+			Promise.resolve(successResponse(tasks)),
+		);
+		const { stdout, stderr } = await runCommand(
+			registerTaskCommands,
+			["task", "search", "test", "--limit", "50", "--json"],
+			c,
+		);
+		expect(JSON.parse(stdout.join("\n"))).toHaveLength(50);
+		expect(stderr.some((line) => line.includes("--limit"))).toBeTrue();
+	});
+
+	test("task search prints no limit notice when results are under the limit", async () => {
+		const { stderr } = await runCommand(registerTaskCommands, [
+			"task",
+			"search",
+			"test",
+			"--limit",
+			"50",
+			"--json",
+		]);
+		expect(stderr).toHaveLength(0);
+	});
+});
+
+// ── Tag tasks limit notice ──────────────────────────────────────────────────
+
+describe("tag tasks limit notice", () => {
+	test("tag tasks defaults to a limit of 50", async () => {
+		const c = createMockClient();
+		await runCommand(registerTagCommands, ["tag", "tasks", "urgent", "--json"], c);
+		expect(c.listTasksByTag).toHaveBeenCalledWith("urgent", 50);
+	});
+
+	test("tag tasks warns on stderr when the limit is filled", async () => {
+		const c = createMockClient();
+		const tasks = Array.from({ length: 50 }, (_, i) => ({
+			...MOCK_TASK,
+			id: `task-${i}`,
+		}));
+		(c.listTasksByTag as ReturnType<typeof mock>).mockImplementation(() =>
+			Promise.resolve(successResponse(tasks)),
+		);
+		const { stdout, stderr } = await runCommand(
+			registerTagCommands,
+			["tag", "tasks", "urgent", "--limit", "50", "--json"],
+			c,
+		);
+		expect(JSON.parse(stdout.join("\n"))).toHaveLength(50);
+		expect(stderr.some((line) => line.includes("--limit"))).toBeTrue();
+	});
+
+	test("tag tasks prints no limit notice when results are under the limit", async () => {
+		const { stderr } = await runCommand(registerTagCommands, [
+			"tag",
+			"tasks",
+			"urgent",
+			"--limit",
+			"50",
+			"--json",
+		]);
+		expect(stderr).toHaveLength(0);
+	});
+});
+
 // ── Stats command ───────────────────────────────────────────────────────────
 
 describe("stats command", () => {

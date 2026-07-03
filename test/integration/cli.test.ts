@@ -697,6 +697,9 @@ describe("inbox commands", () => {
 			tags: ["errand"],
 		});
 		expect(secondCall[0]).toMatchObject({ id: "inbox-2", complete: true });
+		// confirm provenance is the --confirm flag only; without it every item is forced false.
+		expect(firstCall[0].confirm).toBe(false);
+		expect(secondCall[0].confirm).toBe(false);
 	});
 
 	test("inbox list defaults to a limit of 50", async () => {
@@ -832,8 +835,65 @@ describe("inbox commands", () => {
 		const calls = (c.processInbox as ReturnType<typeof mock>).mock.calls as [
 			Record<string, unknown>,
 		][];
-		expect(calls[0]?.[0]).toMatchObject({ id: "inbox-1", project: "Errands" });
+		// Every item's confirm is overwritten from the --confirm flag, regardless of
+		// whether that item itself has delete: true.
+		expect(calls[0]?.[0]).toMatchObject({ id: "inbox-1", project: "Errands", confirm: true });
 		expect(calls[1]?.[0]).toMatchObject({ id: "inbox-2", delete: true, confirm: true });
+	});
+
+	test("inbox process-many stdin delete:1 with confirm:true bypass attempt is blocked without --confirm", async () => {
+		const c = createMockClient();
+		const origExit = process.exit;
+		let exitCode: number | undefined;
+		process.exit = ((code?: number) => {
+			exitCode = code;
+		}) as never;
+		try {
+			const { stderr } = await runCommandWithStdin(
+				registerInboxCommands,
+				["inbox", "process-many"],
+				JSON.stringify([{ id: "x", delete: 1, confirm: true }]),
+				c,
+			);
+			expect(c.processInbox).not.toHaveBeenCalled();
+			expect(exitCode).toBe(1);
+			expect(stderr.some((line) => line.includes("--confirm"))).toBeTrue();
+		} finally {
+			process.exit = origExit;
+		}
+	});
+
+	test("inbox process-many strips stdin-supplied confirm when --confirm is not passed", async () => {
+		const c = createMockClient();
+		await runCommandWithStdin(
+			registerInboxCommands,
+			["inbox", "process-many", "--json"],
+			JSON.stringify([{ id: "x", confirm: true, project: "Errands" }]),
+			c,
+		);
+
+		expect(c.processInbox).toHaveBeenCalledTimes(1);
+		const call = (c.processInbox as ReturnType<typeof mock>).mock.calls[0] as [
+			Record<string, unknown>,
+		];
+		expect(call[0].confirm).not.toBe(true);
+		expect(call[0]).toMatchObject({ id: "x", project: "Errands", confirm: false });
+	});
+
+	test("inbox process-many with --confirm forwards truthy non-boolean delete as confirm: true", async () => {
+		const c = createMockClient();
+		await runCommandWithStdin(
+			registerInboxCommands,
+			["inbox", "process-many", "--confirm", "--json"],
+			JSON.stringify([{ id: "x", delete: 1 }]),
+			c,
+		);
+
+		expect(c.processInbox).toHaveBeenCalledTimes(1);
+		const call = (c.processInbox as ReturnType<typeof mock>).mock.calls[0] as [
+			Record<string, unknown>,
+		];
+		expect(call[0]).toMatchObject({ id: "x", delete: 1, confirm: true });
 	});
 });
 

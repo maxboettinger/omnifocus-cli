@@ -71,7 +71,7 @@ export function registerProcessManyCommand(parent: Command, client: OmniFocusCli
 
 			const hasDeleteItem = items.some(
 				(item) =>
-					item && typeof item === "object" && (item as Record<string, unknown>).delete === true,
+					item && typeof item === "object" && Boolean((item as Record<string, unknown>).delete),
 			);
 			if (hasDeleteItem && !opts.confirm) {
 				outputError(new ConfirmationRequiredError("inbox process-many with delete items").message);
@@ -92,9 +92,13 @@ export function registerProcessManyCommand(parent: Command, client: OmniFocusCli
 					continue;
 				}
 
-				const processOptions = opts.confirm
-					? ({ ...(item as InboxProcessOptions), confirm: true } as InboxProcessOptions)
-					: (item as InboxProcessOptions);
+				// Confirm provenance must come from the --confirm flag only: never let a
+				// caller-supplied `confirm` field in stdin JSON survive, since that would
+				// bypass the delete confirmation guard above.
+				const processOptions = {
+					...(item as InboxProcessOptions),
+					confirm: opts.confirm === true,
+				} as InboxProcessOptions;
 
 				try {
 					const response = await client.processInbox(processOptions);

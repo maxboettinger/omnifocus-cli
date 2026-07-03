@@ -690,18 +690,38 @@ ops["task.list"] = function(of, doc, p) {
 ops["task.search"] = function(of, doc, p) {
     if (!p.query) return fail("Search query required");
     var limit = p.limit || 50, seenIds = {}, results = [];
-    var nameMatches = doc.flattenedTasks.whose({ name: { _contains: p.query } })();
-    for (var i = 0; i < nameMatches.length && results.length < limit; i++) {
-        if (nameMatches[i].completed()) continue;
-        var id = nameMatches[i].id(); if (seenIds[id]) continue; seenIds[id] = true;
-        results.push(formatTask(nameMatches[i]));
+    var q = p.query.toLowerCase();
+    // Batch property access — whose()'s _contains predicate is itself slow to
+    // evaluate against thousands of tasks (cost scales with match count, not
+    // with the limit): a broad query can match nearly the whole database and
+    // time out before a single result is read. Read name/note/completed/id
+    // once and match in JS instead, consistent with task.list/stats.
+    var ft = doc.flattenedTasks;
+    var allNames = ft.name(), allIds = ft.id(), allCompleted = ft.completed();
+    var allNotes; try { allNotes = ft.note(); } catch(e) { allNotes = []; }
+    var nameIdx = [];
+    for (var i = 0; i < allNames.length && results.length + nameIdx.length < limit; i++) {
+        if (allCompleted[i]) continue;
+        var nm = allNames[i]; if (!nm || nm.toLowerCase().indexOf(q) === -1) continue;
+        var id = allIds[i]; if (seenIds[id]) continue; seenIds[id] = true;
+        nameIdx.push(i);
+    }
+    var refs = null;
+    if (nameIdx.length > 0) {
+        refs = ft();
+        for (var ni = 0; ni < nameIdx.length; ni++) results.push(formatTask(refs[nameIdx[ni]]));
     }
     if (results.length < limit) {
-        var noteMatches = doc.flattenedTasks.whose({ note: { _contains: p.query } })();
-        for (var j = 0; j < noteMatches.length && results.length < limit; j++) {
-            if (noteMatches[j].completed()) continue;
-            var nid = noteMatches[j].id(); if (seenIds[nid]) continue; seenIds[nid] = true;
-            results.push(formatTask(noteMatches[j]));
+        var noteIdx = [];
+        for (var j = 0; j < allNotes.length && results.length + noteIdx.length < limit; j++) {
+            if (allCompleted[j]) continue;
+            var nt = allNotes[j]; if (!nt || nt.toLowerCase().indexOf(q) === -1) continue;
+            var nid = allIds[j]; if (seenIds[nid]) continue; seenIds[nid] = true;
+            noteIdx.push(j);
+        }
+        if (noteIdx.length > 0) {
+            if (!refs) refs = ft();
+            for (var nj = 0; nj < noteIdx.length; nj++) results.push(formatTask(refs[noteIdx[nj]]));
         }
     }
     return ok(results);

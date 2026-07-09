@@ -27,7 +27,9 @@ Three clean layers, each testable independently:
 
 - **CLI** (`src/commands/`): Commander.js wires args to client calls, formats output. Each noun (task, project, tag, folder, inbox, bulk) is a directory with one file per verb. Thin: parse args, call client, format output.
 - **Client** (`src/core/client.ts`): Implements `OmniFocusClient` interface. Each method maps to a bridge operation. All methods return `BridgeResponse<T>`. Injectable/mockable for tests.
-- **Bridge** (`src/core/bridge.ts` + `src/jxa/bridge.js`): `executeBridge()` calls `/usr/bin/osascript`, passing the JXA script source (embedded via a Bun text import, not a file path — required so the standalone compiled binary can find it) via `-e`. JSON command in, JSON response out. Single choke point for all OmniFocus communication.
+- **Bridge** (`src/core/bridge.ts` + `src/jxa/bridge.js`): `executeBridge()` calls `osascript`, passing the JXA script source (embedded via a Bun text import, not a file path — required so the standalone compiled binary can find it) via `-e`. JSON command in, JSON response out. Single choke point for all OmniFocus communication.
+
+Program assembly is split from the executable entry point: `@/src/program.ts` exports `buildProgram(client)`, which constructs the full Commander program (all noun/verb registrations) without parsing `argv` — this lets tests build a real program against a mock client with no process side effects. `@/src/index.ts` is a thin executable: build a real client, `buildProgram(client)`, `parseAsync`, with top-level error handling that maps `CLIError` to `outputError()` + its exit code. The CLI's version is single-sourced from `package.json` — `program.ts` imports it directly (`import pkg from "../package.json" with { type: "json" }`) and sets `.version(pkg.version)`, so there is no separately hardcoded version string anywhere else.
 
 ### Command Structure
 
@@ -52,36 +54,34 @@ All commands support `--json` for machine-readable output (globally or per-comma
 
 ```
 src/
-├── index.ts                    # Entry: creates program, registers commands
+├── index.ts                    # Executable entry: build client, buildProgram(), parseAsync
+├── program.ts                  # buildProgram(client) — full Commander assembly, no argv side effects
 ├── commands/                   # CLI layer (thin: parse → service → format)
 │   ├── task/                   # add, list, update, complete, search, show, notification/*, subtask, tag
 │   ├── project/                # add, list, show, update, rename, delete
 │   ├── tag/                    # add, list, rename, delete, tasks
 │   ├── folder/                 # add, list
-│   ├── inbox/                  # list, add, process
+│   ├── inbox/                  # list, add, process, process-many
 │   ├── bulk/                   # create, update, complete
+│   ├── completion.ts
 │   ├── forecast.ts
 │   ├── review.ts
 │   └── stats.ts
-├── services/                   # Business logic (pure TS, injectable client)
 ├── core/
 │   ├── types.ts                # All domain types, OmniFocusClient interface
 │   ├── errors.ts               # Error hierarchy (CLIError, BridgeError, etc.)
 │   ├── bridge.ts               # osascript executor, JSON protocol handler
 │   ├── client.ts               # OmniFocusClient implementation
-│   └── output.ts               # Formatters for human/JSON output
+│   ├── output.ts               # Formatters for human/JSON output
+│   └── stdin.ts                # Shared TTY-guarded stdin reader (bulk/process-many)
 └── jxa/
     └── bridge.js               # Unified JXA script (~1150 lines, all OmniFocus ops)
 
 test/
-├── core/                       # Unit tests for core modules
-│   ├── client.test.ts
-│   ├── errors.test.ts
-│   └── output.test.ts
-├── integration/
-│   └── cli.test.ts             # Integration tests (mock client, real Commander parsing)
-└── fixtures/
-    └── mock-responses.ts       # Shared test fixtures
+├── core/                       # Unit tests for core modules, incl. transport tests
+├── integration/                # Mock-client integration tests (real Commander parsing)
+├── jxa/                        # Direct tests of bridge.js op handlers
+└── fixtures/                   # Shared mock domain objects, mock client, stub bridge binary
 ```
 
 ### Core Types
@@ -128,7 +128,7 @@ Operations: `task.create`, `task.get`, `task.update`, `task.complete`, `task.del
 
 **Task notifications use Omni Automation via the bridge.** Notification CRUD is implemented through OmniFocus `evaluate javascript` calls (`Task.Notification`) behind bridge ops. `task show` always includes notifications; `task list` includes them only for JSON output.
 
-**Beads tracker state is Dolt-backed and local.** The issue board lives in `.beads/dolt`; if `bd` reports `database not found`, verify `bd dolt show` points to the actual database (`dolt` in this repo) and run `bd doctor --fix` to restore missing metadata/schema without deleting `.beads/dolt`.
+**Known first-run failures get translated into actionable guidance.** Two conditions a first-time user is likely to hit — Apple Events authorization denial (macOS error -1743) and OmniFocus not being installed/openable — are pattern-matched (`matchKnownBridgeFailure()` in `@/src/core/errors.ts`) and rewritten into guidance pointing at System Settings → Privacy & Security → Automation, or an install link, instead of surfacing raw osascript stderr. See `@/src/core/docs.md` for the call sites.
 
 ### Development
 

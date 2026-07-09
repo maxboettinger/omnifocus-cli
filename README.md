@@ -4,16 +4,23 @@ A TypeScript CLI for managing OmniFocus from the terminal. Built on Bun + Comman
 
 ## Requirements
 
-- macOS (uses Apple Events via `osascript`)
+- macOS (uses Apple Events via `osascript`) — on other platforms the CLI exits with a clear error
 - [Bun](https://bun.sh/) >= 1.0
 - OmniFocus installed and running
+
+### First run: Automation permission
+
+The first command that talks to OmniFocus triggers a macOS prompt asking to allow your
+terminal to control OmniFocus. If you decline (or the prompt never appeared), commands fail
+with guidance to fix it: open **System Settings → Privacy & Security → Automation**, find
+your terminal app, and enable **OmniFocus**.
 
 ## Installation
 
 ### From source (recommended)
 
 ```bash
-git clone https://github.com/max/omnifocus-cli.git
+git clone https://github.com/maxboettinger/omnifocus-cli.git
 cd omnifocus-cli
 bun install
 ```
@@ -43,6 +50,18 @@ Commands follow a noun-verb pattern: `of <noun> <verb> [args] [options]`
 
 All commands support `--json` for machine-readable output. When stdout is piped (not a TTY), JSON is the default.
 
+### Scripting contract
+
+Built for both humans and scripts/agents:
+
+- **stdout**: human-formatted on a terminal, JSON when piped or with `--json`.
+- **stderr**: human-readable messages on a terminal; when piped, one JSON object per line —
+  errors as `{"ok": false, "error": "...", "candidates": [...]?}` (mirroring the bridge
+  protocol) and warnings as `{"warning": "..."}`.
+- **Exit codes**: `0` on success, `1` on any error (including missing `--confirm`).
+- **Colors**: ANSI colors only on a terminal; [`NO_COLOR`](https://no-color.org/) disables
+  them, `FORCE_COLOR` forces them.
+
 ### Tasks
 
 ```bash
@@ -63,7 +82,7 @@ of task notification delete --id abc123 --notification-id notif-1
 of task notification clear --id abc123 --confirm
 ```
 
-Duration flags (`--offset`, `--repeat`) accept `[-+]?((\\d+h)?(\\d+m)?(\\d+s)?)` such as `-1h`, `30m`, `1h30m`, `90s`, `+2h15m`.
+Duration flags (`--offset`, `--repeat`) accept `[-+]?((\\d+h)?(\\d+m)?(\\d+s)?)` such as `-1h`, `30m`, `1h30m`, `90s`, `+2h15m`. Explicit zeros are valid: `--offset 0s` fires a due-relative notification exactly at the due time.
 
 ### Task Notifications
 
@@ -131,6 +150,19 @@ echo '[{"id": "abc", "due": "2026-04-01"}]' | of bulk update
 echo '["id1", "id2"]' | of bulk complete
 ```
 
+Bulk commands (and `inbox process-many`) read their JSON payload from stdin and error
+immediately with a usage example if nothing is piped. Arbitrarily large payloads are safe —
+oversized commands are streamed to the bridge instead of passed as process arguments.
+
+### Shell completions
+
+```bash
+of completion bash   # or zsh, fish
+```
+
+Completion scripts are generated from the live command tree, so they always match the
+installed version. For example: `of completion zsh > ~/.zfunc/_of`.
+
 ### Reports
 
 ```bash
@@ -197,9 +229,9 @@ bun run dev -- task list --json   # run in dev mode
 
 Three clean layers:
 
-1. **CLI** (`src/commands/`) -- Commander.js commands. Parse args, call client, format output.
+1. **CLI** (`src/commands/`) -- Commander.js commands. Parse args, call client, format output. Assembled by `src/program.ts`; `src/index.ts` is the thin executable entry point.
 2. **Client** (`src/core/client.ts`) -- `OmniFocusClient` interface. Each method maps to a bridge op.
-3. **Bridge** (`src/core/bridge.ts` + `src/jxa/bridge.js`) -- Single JXA script. JSON command in, JSON response out.
+3. **Bridge** (`src/core/bridge.ts` + `src/jxa/bridge.js`) -- Single JXA script. JSON command in, JSON response out. Commands over 128KB are piped through stdin (`@stdin` sentinel) to stay clear of ARG_MAX.
 
 ### Testing
 

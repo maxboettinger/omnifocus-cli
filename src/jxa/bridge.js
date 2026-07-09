@@ -1286,9 +1286,6 @@ ops["forecast"] = function(of, doc, p) {
         var cc = 0; try { cc = t.tasks().length; } catch(e) {}
         var parent = null; try { var pt = t.parentTask(); if (pt) parent = { id: pt.id(), name: pt.name() }; } catch(e) {}
 
-        var spoon = parseSpoonCost(name, tagNames);
-        var priority = parsePriority(name, tagNames);
-        var rigidity = parseRigidity(name);
         var daysOverdue = due ? Math.floor((now.getTime() - due.getTime()) / 86400000) : null;
 
         return {
@@ -1301,8 +1298,7 @@ ops["forecast"] = function(of, doc, p) {
             estimatedMinutes: est, sequential: seq, blocked: blocked,
             repetitionRule: rep, childCount: cc, creationDate: cd, modificationDate: md,
             completed: false, completionDate: null, inInbox: false,
-            spoonCost: spoon.cost, spoonEmoji: spoon.emoji,
-            priority: priority, rigidity: rigidity, daysOverdue: daysOverdue
+            daysOverdue: daysOverdue
         };
     }
 
@@ -1317,13 +1313,9 @@ ops["forecast"] = function(of, doc, p) {
 
     var todayTasks = overdue.concat(dueToday).concat(plannedToday).concat(deferredToday);
     if (includeFlagged) todayTasks = todayTasks.concat(flaggedTasks);
-    var totalSpoons = 0, totalEst = 0;
-    var breakdown = { "\uD83D\uDC38": 0, "\uD83D\uDCA5": 0, "\uD83D\uDD0B": 0, "\uD83E\uDEAB": 0, "\uD83D\uDD0C": 0, "untagged": 0 };
+    var totalEst = 0;
     for (var k = 0; k < todayTasks.length; k++) {
-        var tt = todayTasks[k];
-        if (tt.spoonCost !== null) totalSpoons += tt.spoonCost; else breakdown["untagged"]++;
-        if (tt.spoonEmoji && breakdown.hasOwnProperty(tt.spoonEmoji)) breakdown[tt.spoonEmoji]++;
-        if (tt.estimatedMinutes) totalEst += tt.estimatedMinutes;
+        if (todayTasks[k].estimatedMinutes) totalEst += todayTasks[k].estimatedMinutes;
     }
 
     var dragAlerts = [];
@@ -1341,7 +1333,6 @@ ops["forecast"] = function(of, doc, p) {
     return ok({
         meta: {
             generatedAt: now.toISOString(), today: todayStr, upcomingDays: upcomingDays,
-            spoonBudget: { baseline: 20, planned: totalSpoons, remaining: 20 - totalSpoons, overBudget: totalSpoons > 20, breakdown: breakdown },
             totalEstimatedMinutes: totalEst,
             counts: { overdue: overdue.length, dueToday: dueToday.length, plannedToday: plannedToday.length, deferredToday: deferredToday.length, flagged: flaggedTasks.length, upcoming: upcoming.length, availableNext: availableNext.length },
             dragAlerts: dragAlerts
@@ -1350,44 +1341,6 @@ ops["forecast"] = function(of, doc, p) {
         deferred_today: deferredToday, flagged: flaggedTasks, upcoming: upcoming, available_next: availableNext
     });
 };
-
-// ── Taxonomy parsing (for forecast/review) ──────────────────────────────
-
-function parseSpoonCost(name, tags) {
-    if (name.indexOf("\uD83D\uDC38") !== -1) return { cost: 10, emoji: "\uD83D\uDC38" };
-    if (name.indexOf("\uD83D\uDCA5") !== -1) return { cost: 7, emoji: "\uD83D\uDCA5" };
-    if (name.indexOf("\uD83D\uDD0B") !== -1) return { cost: 4, emoji: "\uD83D\uDD0B" };
-    if (name.indexOf("\uD83E\uDEAB") !== -1) return { cost: 1.5, emoji: "\uD83E\uDEAB" };
-    if (name.indexOf("\uD83D\uDD0C") !== -1) return { cost: -5, emoji: "\uD83D\uDD0C" };
-    for (var i = 0; i < tags.length; i++) {
-        var t = tags[i];
-        if (t.indexOf("\uD83D\uDC38") !== -1) return { cost: 10, emoji: "\uD83D\uDC38" };
-        if (t.indexOf("\uD83D\uDCA5") !== -1) return { cost: 7, emoji: "\uD83D\uDCA5" };
-        if (t.indexOf("\uD83D\uDD0B") !== -1) return { cost: 4, emoji: "\uD83D\uDD0B" };
-        if (t.indexOf("\uD83E\uDEAB") !== -1) return { cost: 1.5, emoji: "\uD83E\uDEAB" };
-        if (t.indexOf("\uD83D\uDD0C") !== -1) return { cost: -5, emoji: "\uD83D\uDD0C" };
-    }
-    return { cost: null, emoji: null };
-}
-
-function parsePriority(name, tags) {
-    if (name.indexOf("\uD83D\uDD34") !== -1) return "P1";
-    if (name.indexOf("\uD83D\uDFE0") !== -1) return "P2";
-    if (name.indexOf("\uD83D\uDFE1") !== -1) return "P3";
-    if (name.indexOf("\uD83D\uDD35") !== -1) return "P4";
-    for (var i = 0; i < tags.length; i++) {
-        if (tags[i].indexOf("\uD83D\uDD34") !== -1) return "P1";
-        if (tags[i].indexOf("\uD83D\uDFE0") !== -1) return "P2";
-    }
-    return null;
-}
-
-function parseRigidity(name) {
-    if (name.indexOf("\u203C\uFE0F") !== -1) return "fixed";
-    if (name.indexOf("\u26A0\uFE0F") !== -1) return "firm";
-    if (name.indexOf("\uD83D\uDCCC") !== -1) return "target";
-    return null;
-}
 
 // ── Review ──────────────────────────────────────────────────────────────
 
@@ -1404,8 +1357,8 @@ ops["review"] = function(of, doc, p) {
     var total = allCompleted.length;
 
     var taskRefs = ft();
-    var completedTasks = [], bySpoon = {}, byProject = {}, byDay = {};
-    var totalEst = 0, totalSpoons = 0;
+    var completedTasks = [], byProject = {}, byDay = {};
+    var totalEst = 0;
 
     for (var i = 0; i < total; i++) {
         if (!allCompleted[i]) continue;
@@ -1414,24 +1367,20 @@ ops["review"] = function(of, doc, p) {
         var t = taskRefs[i], name = allNames[i];
         var tagNames = []; try { tagNames = t.tags().map(function(tg) { return tg.name(); }); } catch(e) {}
         var project = null; try { var pp = t.containingProject(); if (pp) project = pp.name(); } catch(e) {}
-        var spoon = parseSpoonCost(name, tagNames);
 
         var task = {
             name: name, id: allIds[i], note: allNotes[i] || "",
             project: project || "No Project", tags: tagNames,
             completionDate: cd.toISOString(),
-            estimatedMinutes: allEstimates.length > i ? allEstimates[i] : null,
-            spoonCost: spoon.cost, spoonEmoji: spoon.emoji
+            estimatedMinutes: allEstimates.length > i ? allEstimates[i] : null
         };
         completedTasks.push(task);
 
         if (task.estimatedMinutes) totalEst += task.estimatedMinutes;
-        if (spoon.cost !== null) totalSpoons += spoon.cost;
 
         var dayKey = cd.getFullYear() + "-" + String(cd.getMonth() + 1).padStart(2, "0") + "-" + String(cd.getDate()).padStart(2, "0");
         byDay[dayKey] = (byDay[dayKey] || 0) + 1;
         byProject[task.project] = (byProject[task.project] || 0) + 1;
-        if (spoon.emoji) bySpoon[spoon.emoji] = (bySpoon[spoon.emoji] || 0) + 1;
     }
 
     // Active project progress
@@ -1449,7 +1398,7 @@ ops["review"] = function(of, doc, p) {
     return ok({
         meta: { generatedAt: now.toISOString(), periodStart: cutoff.toISOString(), periodEnd: now.toISOString(), daysReviewed: days },
         completedTasks: completedTasks,
-        summary: { totalCompleted: completedTasks.length, bySpoon: bySpoon, byProject: byProject, byDay: byDay, totalEstimatedMinutes: totalEst, totalSpoons: totalSpoons },
+        summary: { totalCompleted: completedTasks.length, byProject: byProject, byDay: byDay, totalEstimatedMinutes: totalEst },
         projectProgress: projectProgress
     });
 };
@@ -1588,14 +1537,11 @@ ops["collect"] = function(of, doc, p) {
         var t = matches[i], name = t.name();
         var tagNames = []; try { tagNames = t.tags().map(function(tg) { return tg.name(); }); } catch(e) {}
         var project = null; try { var pp = t.containingProject(); if (pp) project = pp.name(); } catch(e) {}
-        var spoon = parseSpoonCost(name, tagNames);
         results.push({
             omnifocus_id: t.id(), name: name, project: project || "No Project",
             completion_date: t.completionDate().toISOString(),
             tags: tagNames, estimated_minutes: t.estimatedMinutes() || null,
-            note: t.note() || "",
-            spoon_cost: spoon.cost, spoon_emoji: spoon.emoji,
-            priority: parsePriority(name, tagNames), rigidity: parseRigidity(name)
+            note: t.note() || ""
         });
     }
     return ok(results);

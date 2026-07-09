@@ -85,36 +85,17 @@ export function registerForecastCommand(program: Command, client: OmniFocusClien
 					console.log("");
 				}
 
-				// Spoon budget summary
-				const budget = data.meta.spoonBudget;
-				console.log(bold("Spoon Budget"));
-				console.log(`  Baseline: ${budget.baseline}`);
-				console.log(`  Planned: ${budget.planned}`);
-				console.log(`  Remaining: ${budget.remaining}`);
-				if (budget.overBudget) {
-					console.log(red("  ⚠ Over budget!"));
-				}
-
-				// Breakdown by category
-				if (Object.keys(budget.breakdown).length > 0) {
-					console.log(dim("  Breakdown:"));
-					for (const [category, spoons] of Object.entries(budget.breakdown)) {
-						console.log(dim(`    ${category}: ${spoons}`));
-					}
-				}
-
 				// Drag alerts
 				if (data.meta.dragAlerts.length > 0) {
-					console.log("");
 					console.log(red(bold("Drag Alerts")));
 					for (const alert of data.meta.dragAlerts) {
 						console.log(red(`  ${alert.name} (${alert.daysOverdue} days overdue)`));
 						console.log(dim(`    ${alert.suggestion}`));
 					}
+					console.log("");
 				}
 
 				// Summary stats
-				console.log("");
 				console.log(dim(`Total estimated: ${data.meta.totalEstimatedMinutes} minutes`));
 				const counts = data.meta.counts;
 				console.log(

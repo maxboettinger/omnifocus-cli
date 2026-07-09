@@ -40,9 +40,7 @@ function outputCollectedTasks(tasks: CollectedTask[]): void {
 	}
 
 	for (const task of tasks) {
-		const parts: string[] = [];
-		if (task.spoon_emoji) parts.push(task.spoon_emoji);
-		parts.push(task.name);
+		const parts: string[] = [task.name];
 		if (task.project) parts.push(dim(`[${task.project}]`));
 		if (task.tags.length > 0) parts.push(dim(task.tags.join(", ")));
 		if (task.completion_date) {

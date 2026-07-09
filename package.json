@@ -1,26 +1,58 @@
 {
-  "name": "omnifocus-cli",
-  "version": "0.1.0",
-  "description": "Professional CLI for OmniFocus task management",
-  "type": "module",
-  "bin": {
-    "of": "./src/index.ts"
-  },
-  "scripts": {
-    "dev": "bun run src/index.ts",
-    "test": "bun test",
-    "check": "bun x biome check src/ test/",
-    "format": "bun x biome format --write src/ test/",
-    "lint": "bun x biome lint src/ test/",
-    "typecheck": "bun x tsc --noEmit",
-    "build": "bun build --compile src/index.ts --outfile of"
-  },
-  "dependencies": {
-    "commander": "^13.1.0"
-  },
-  "devDependencies": {
-    "@biomejs/biome": "^1.9.0",
-    "@types/bun": "latest",
-    "typescript": "^5.7.0"
-  }
+	"name": "omnifocus-cli",
+	"version": "0.1.0",
+	"description": "Command-line interface for OmniFocus on macOS — tasks, projects, tags, forecast, and bulk operations",
+	"type": "module",
+	"license": "MIT",
+	"author": "Max Boettinger",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/maxboettinger/omnifocus-cli.git"
+	},
+	"homepage": "https://github.com/maxboettinger/omnifocus-cli#readme",
+	"bugs": {
+		"url": "https://github.com/maxboettinger/omnifocus-cli/issues"
+	},
+	"keywords": [
+		"omnifocus",
+		"cli",
+		"gtd",
+		"tasks",
+		"task-management",
+		"productivity",
+		"macos",
+		"jxa",
+		"bun"
+	],
+	"os": [
+		"darwin"
+	],
+	"engines": {
+		"bun": ">=1.0.0"
+	},
+	"bin": {
+		"of": "./src/index.ts"
+	},
+	"files": [
+		"src",
+		"README.md",
+		"LICENSE"
+	],
+	"scripts": {
+		"dev": "bun run src/index.ts",
+		"test": "bun test",
+		"check": "bun x biome check src/ test/",
+		"format": "bun x biome format --write src/ test/",
+		"lint": "bun x biome lint src/ test/",
+		"typecheck": "bun x tsc --noEmit",
+		"build": "bun build --compile src/index.ts --outfile of"
+	},
+	"dependencies": {
+		"commander": "^13.1.0"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^1.9.0",
+		"@types/bun": "latest",
+		"typescript": "^5.7.0"
+	}
 }

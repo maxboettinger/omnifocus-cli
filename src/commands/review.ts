@@ -34,17 +34,7 @@ export function registerReviewCommand(program: Command, client: OmniFocusClient)
 				console.log(bold("Summary"));
 				console.log(`  ${green("✓")} Tasks completed: ${data.summary.totalCompleted}`);
 				console.log(`  ⏱️  Total estimated: ${data.summary.totalEstimatedMinutes} minutes`);
-				console.log(`  🥄 Total spoons: ${data.summary.totalSpoons}`);
 				console.log("");
-
-				// By-spoon breakdown
-				if (Object.keys(data.summary.bySpoon).length > 0) {
-					console.log(bold("By Spoon Cost"));
-					for (const [spoon, count] of Object.entries(data.summary.bySpoon)) {
-						console.log(`  ${spoon}: ${count} tasks`);
-					}
-					console.log("");
-				}
 
 				// By-project breakdown
 				if (Object.keys(data.summary.byProject).length > 0) {

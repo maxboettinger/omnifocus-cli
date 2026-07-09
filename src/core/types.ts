@@ -309,14 +309,6 @@ export interface ForecastOptions {
 	includeAvailable?: boolean;
 }
 
-export interface SpoonBudget {
-	baseline: number;
-	planned: number;
-	remaining: number;
-	overBudget: boolean;
-	breakdown: Record<string, number>;
-}
-
 export interface DragAlert {
 	name: string;
 	id: string;
@@ -329,7 +321,6 @@ export interface ForecastResult {
 		generatedAt: string;
 		today: string;
 		upcomingDays: number;
-		spoonBudget: SpoonBudget;
 		totalEstimatedMinutes: number;
 		counts: {
 			overdue: number;
@@ -364,14 +355,12 @@ export interface ReviewResult {
 		periodEnd: string;
 		daysReviewed: number;
 	};
-	completedTasks: Array<OFTask & { spoonCost: number | null; spoonEmoji: string | null }>;
+	completedTasks: OFTask[];
 	summary: {
 		totalCompleted: number;
-		bySpoon: Record<string, number>;
 		byProject: Record<string, number>;
 		byDay: Record<string, number>;
 		totalEstimatedMinutes: number;
-		totalSpoons: number;
 	};
 	projectProgress: Array<{
 		name: string;
@@ -467,10 +456,6 @@ export interface CollectedTask {
 	tags: string[];
 	estimated_minutes: number | null;
 	note: string;
-	spoon_cost: number | null;
-	spoon_emoji: string | null;
-	priority: string | null;
-	rigidity: string | null;
 }
 
 // ── Client interface ────────────────────────────────────────────────────────

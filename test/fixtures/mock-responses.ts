@@ -27,7 +27,7 @@ export const MOCK_TASK: OFTask = {
 	blocked: false,
 	project: "Errands",
 	parentTask: null,
-	tags: ["🔋 Medium", "🏡 Daheim"],
+	tags: ["errand", "home"],
 	repetitionRule: null,
 	notifications: [
 		{

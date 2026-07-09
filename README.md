@@ -2,6 +2,9 @@
 
 A TypeScript CLI for managing OmniFocus from the terminal. Built on Bun + Commander.js, backed by a unified JXA bridge for all Apple Event communication.
 
+> This is an unofficial, community project and is not affiliated with or endorsed by
+> [The Omni Group](https://www.omnigroup.com/). OmniFocus is a trademark of The Omni Group.
+
 ## Requirements
 
 - macOS (uses Apple Events via `osascript`) — on other platforms the CLI exits with a clear error
@@ -166,7 +169,7 @@ installed version. For example: `of completion zsh > ~/.zfunc/_of`.
 ### Reports
 
 ```bash
-of forecast --days 3          # daily forecast with spoon budget
+of forecast --days 3          # today's categorized task view
 of review --days 7            # weekly review summary
 of stats                      # task/project statistics
 of collect --days 14          # recently completed tasks
@@ -210,7 +213,7 @@ of collect --days 14          # recently completed tasks
 | `bulk create` | Create tasks from JSON (stdin) |
 | `bulk update` | Update tasks from JSON (stdin) |
 | `bulk complete` | Complete tasks by ID (stdin) |
-| `forecast` | Daily forecast with spoon budget |
+| `forecast` | Daily categorized forecast (overdue, due, planned, upcoming) |
 | `review` | Weekly review summary |
 | `stats` | Task and project statistics |
 | `collect` | List recently completed tasks |
@@ -245,4 +248,4 @@ bun test test/core/                # unit only
 
 ## License
 
-Private.
+[MIT](LICENSE)

@@ -21,7 +21,10 @@ export function parseIntOption(value: string): number {
 export function parseDurationToSeconds(value: string): number {
 	const trimmed = value.trim();
 	const match = /^([+-])?(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/.exec(trimmed);
-	if (!match) {
+	// The regex also matches strings with no components at all ("", "+", "-"),
+	// so require at least one explicit h/m/s part. Explicit zeros ("0s") are
+	// valid: a due-relative offset of 0 means "exactly at the due time".
+	if (!match || (match[2] === undefined && match[3] === undefined && match[4] === undefined)) {
 		throw new Error(`Invalid duration: ${value}`);
 	}
 
@@ -29,11 +32,8 @@ export function parseDurationToSeconds(value: string): number {
 	const minutes = match[3] ? Number.parseInt(match[3], 10) : 0;
 	const seconds = match[4] ? Number.parseInt(match[4], 10) : 0;
 
-	if (hours === 0 && minutes === 0 && seconds === 0) {
-		throw new Error(`Invalid duration: ${value}`);
-	}
-
 	const total = hours * 3600 + minutes * 60 + seconds;
+	if (total === 0) return 0; // avoid -0 from "-0s"
 	return match[1] === "-" ? -total : total;
 }
 

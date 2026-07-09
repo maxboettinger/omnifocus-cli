@@ -1,9 +1,13 @@
 import { describe, expect, test } from "bun:test";
+import { BridgeError } from "../../src/core/errors.js";
 import {
 	formatProjectDetail,
 	formatProjectLine,
 	formatTaskDetail,
 	formatTaskLine,
+	outputError,
+	outputWarning,
+	red,
 	resolveFormat,
 } from "../../src/core/output.js";
 import type { OFProject, OFTask } from "../../src/core/types.js";
@@ -200,5 +204,129 @@ describe("formatProjectDetail", () => {
 	test("handles zero tasks gracefully", () => {
 		const detail = formatProjectDetail(makeProject({ taskCount: 0, completedTaskCount: 0 }));
 		expect(detail).toContain("0%");
+	});
+});
+
+// ── Color handling & stderr structure ───────────────────────────────────────
+
+function withStreamTTY<T>(stream: NodeJS.WriteStream, isTTY: boolean | undefined, fn: () => T): T {
+	const original = Object.getOwnPropertyDescriptor(stream, "isTTY");
+	Object.defineProperty(stream, "isTTY", { value: isTTY, configurable: true });
+	try {
+		return fn();
+	} finally {
+		if (original) Object.defineProperty(stream, "isTTY", original);
+		else Reflect.deleteProperty(stream, "isTTY");
+	}
+}
+
+function withEnv<T>(env: Record<string, string | undefined>, fn: () => T): T {
+	const saved: Record<string, string | undefined> = {};
+	for (const [key, value] of Object.entries(env)) {
+		saved[key] = process.env[key];
+		if (value === undefined) Reflect.deleteProperty(process.env, key);
+		else process.env[key] = value;
+	}
+	try {
+		return fn();
+	} finally {
+		for (const [key, value] of Object.entries(saved)) {
+			if (value === undefined) Reflect.deleteProperty(process.env, key);
+			else process.env[key] = value;
+		}
+	}
+}
+
+function captureStderr(fn: () => void): string[] {
+	const lines: string[] = [];
+	const original = console.error;
+	console.error = (...args: unknown[]) => {
+		lines.push(args.map(String).join(" "));
+	};
+	try {
+		fn();
+	} finally {
+		console.error = original;
+	}
+	return lines;
+}
+
+describe("color conventions", () => {
+	test("stdout color helpers emit ANSI only when stdout is a TTY", () => {
+		withEnv({ NO_COLOR: undefined, FORCE_COLOR: undefined }, () => {
+			const colored = withStreamTTY(process.stdout, true, () => red("x"));
+			expect(colored).toContain("\x1b[31m");
+			const plain = withStreamTTY(process.stdout, undefined, () => red("x"));
+			expect(plain).toBe("x");
+		});
+	});
+
+	test("NO_COLOR disables color even on a TTY", () => {
+		withEnv({ NO_COLOR: "1", FORCE_COLOR: undefined }, () => {
+			const out = withStreamTTY(process.stdout, true, () => red("x"));
+			expect(out).toBe("x");
+		});
+	});
+
+	test("FORCE_COLOR enables color even when not a TTY", () => {
+		withEnv({ NO_COLOR: undefined, FORCE_COLOR: "1" }, () => {
+			const out = withStreamTTY(process.stdout, undefined, () => red("x"));
+			expect(out).toContain("\x1b[31m");
+		});
+	});
+});
+
+describe("outputError stderr structure", () => {
+	test("emits a structured JSON line when stderr is not a TTY", () => {
+		withEnv({ NO_COLOR: undefined, FORCE_COLOR: undefined }, () => {
+			const lines = withStreamTTY(process.stderr, undefined, () =>
+				captureStderr(() => outputError("boom")),
+			);
+			expect(lines).toHaveLength(1);
+			expect(JSON.parse(lines[0] ?? "")).toEqual({ ok: false, error: "boom" });
+		});
+	});
+
+	test("includes structured candidates from a BridgeError", () => {
+		const err = new BridgeError("Ambiguous", [{ id: "t1", name: "Task 1", project: "P" }]);
+		const lines = withStreamTTY(process.stderr, undefined, () =>
+			captureStderr(() => outputError(err)),
+		);
+		const parsed = JSON.parse(lines[0] ?? "") as Record<string, unknown>;
+		expect(parsed.ok).toBeFalse();
+		expect(parsed.error).toBe("Ambiguous");
+		expect(parsed.candidates).toEqual([{ id: "t1", name: "Task 1", project: "P" }]);
+	});
+
+	test("renders human text with candidates when stderr is a TTY", () => {
+		withEnv({ NO_COLOR: "1" }, () => {
+			const err = new BridgeError("Ambiguous", ["Task A", "Task B"]);
+			const lines = withStreamTTY(process.stderr, true, () =>
+				captureStderr(() => outputError(err)),
+			);
+			const text = lines.join("\n");
+			expect(text).toContain("✗ Ambiguous");
+			expect(text).toContain("Did you mean:");
+			expect(text).toContain("Task A");
+			expect(text).not.toContain("\x1b[");
+		});
+	});
+});
+
+describe("outputWarning stderr structure", () => {
+	test("emits a structured JSON line when stderr is not a TTY", () => {
+		const lines = withStreamTTY(process.stderr, undefined, () =>
+			captureStderr(() => outputWarning("careful")),
+		);
+		expect(JSON.parse(lines[0] ?? "")).toEqual({ warning: "careful" });
+	});
+
+	test("renders human text when stderr is a TTY", () => {
+		withEnv({ NO_COLOR: "1" }, () => {
+			const lines = withStreamTTY(process.stderr, true, () =>
+				captureStderr(() => outputWarning("careful")),
+			);
+			expect(lines[0]).toBe("! careful");
+		});
 	});
 });

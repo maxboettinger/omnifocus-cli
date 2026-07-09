@@ -1,187 +1,237 @@
 import type { Command } from "commander";
+import { CLIError } from "../core/errors.js";
 
-const BASH_COMPLETION = `# bash completion for of (omnifocus-cli)
-_of_completion() {
-	local cur prev words cword
-	_init_completion || return
+/**
+ * Shell completion scripts, generated from the live Commander program so
+ * they can never drift from the actual command surface. Supports three
+ * levels of nesting (noun → verb → sub-verb, e.g. `task notification add`).
+ */
 
-	local nouns="task project tag folder inbox bulk forecast review stats completion"
-	local task_verbs="add list update complete search show subtask tag notification"
-	local task_notification_verbs="list add update delete clear"
-	local project_verbs="add list show update rename delete"
-	local tag_verbs="add list rename delete tasks"
-	local folder_verbs="add list"
-	local inbox_verbs="list add process process-many"
-	local bulk_verbs="create update complete"
-
-	case "\${cword}" in
-		1) COMPREPLY=( $(compgen -W "\${nouns}" -- "\${cur}") ) ;;
-		2)
-			case "\${prev}" in
-				task)    COMPREPLY=( $(compgen -W "\${task_verbs}" -- "\${cur}") ) ;;
-				project) COMPREPLY=( $(compgen -W "\${project_verbs}" -- "\${cur}") ) ;;
-				tag)     COMPREPLY=( $(compgen -W "\${tag_verbs}" -- "\${cur}") ) ;;
-				folder)  COMPREPLY=( $(compgen -W "\${folder_verbs}" -- "\${cur}") ) ;;
-				inbox)   COMPREPLY=( $(compgen -W "\${inbox_verbs}" -- "\${cur}") ) ;;
-				bulk)    COMPREPLY=( $(compgen -W "\${bulk_verbs}" -- "\${cur}") ) ;;
-			esac
-			;;
-		3)
-			if [[ "\${words[1]}" == "task" && "\${words[2]}" == "notification" ]]; then
-				COMPREPLY=( $(compgen -W "\${task_notification_verbs}" -- "\${cur}") )
-			fi
-			;;
-	esac
-}
-complete -F _of_completion of`;
-
-const ZSH_COMPLETION = `#compdef of
-# zsh completion for of (omnifocus-cli)
-
-_of() {
-	local -a nouns
-	nouns=(
-		'task:Manage tasks'
-		'project:Manage projects'
-		'tag:Manage tags'
-		'folder:Manage folders'
-		'inbox:Manage inbox'
-		'bulk:Bulk operations'
-		'forecast:Show forecast view'
-		'review:Weekly review report'
-		'stats:Statistics overview'
-		'completion:Output shell completions'
-	)
-
-	local -a task_cmds notification_cmds project_cmds tag_cmds folder_cmds inbox_cmds bulk_cmds
-	task_cmds=(
-		'add:Create a task' 'list:List tasks' 'update:Update a task'
-		'complete:Complete a task' 'search:Search tasks' 'show:Show task detail'
-		'subtask:Add a subtask' 'tag:Apply tags to a task'
-		'notification:Manage task notifications'
-	)
-	notification_cmds=(
-		'list:List task notifications'
-		'add:Add a task notification'
-		'update:Update a task notification'
-		'delete:Delete a task notification'
-		'clear:Clear all task notifications'
-	)
-	project_cmds=(
-		'add:Create a project' 'list:List projects' 'show:Show project detail'
-		'update:Update a project' 'rename:Rename a project' 'delete:Delete a project'
-	)
-	tag_cmds=(
-		'add:Create a tag' 'list:List tags' 'rename:Rename a tag'
-		'delete:Delete a tag' 'tasks:List tasks by tag'
-	)
-	folder_cmds=( 'add:Create a folder' 'list:List folders' )
-	inbox_cmds=( 'list:List inbox items' 'add:Add to inbox' 'process:Process inbox item' 'process-many:Process many inbox items from stdin JSON' )
-	bulk_cmds=( 'create:Bulk create tasks' 'update:Bulk update tasks' 'complete:Bulk complete tasks' )
-
-	_arguments -C '1:noun:->noun' '2:verb:->verb' '*::args:->args'
-
-	case "\$state" in
-		noun)   _describe 'command' nouns ;;
-		verb)
-			case "\$words[2]" in
-				task)    _describe 'subcommand' task_cmds ;;
-				project) _describe 'subcommand' project_cmds ;;
-				tag)     _describe 'subcommand' tag_cmds ;;
-				folder)  _describe 'subcommand' folder_cmds ;;
-				inbox)   _describe 'subcommand' inbox_cmds ;;
-				bulk)    _describe 'subcommand' bulk_cmds ;;
-			esac
-			;;
-		args)
-			if [[ "\$words[2]" == "task" && "\$words[3]" == "notification" ]]; then
-				_describe 'notification subcommand' notification_cmds
-			fi
-			;;
-	esac
+interface CommandNode {
+	name: string;
+	description: string;
+	children: CommandNode[];
 }
 
-_of "\$@"`;
+function toTree(cmd: Command, depth = 0): CommandNode[] {
+	const nodes: CommandNode[] = [];
+	for (const sub of cmd.commands) {
+		nodes.push({
+			name: sub.name(),
+			description: sub.description(),
+			children: depth < 2 ? toTree(sub, depth + 1) : [],
+		});
+	}
+	return nodes;
+}
 
-const FISH_COMPLETION = `# fish completion for of (omnifocus-cli)
+/** Sanitize a command name for use in a shell variable name. */
+function varName(...parts: string[]): string {
+	return parts.join("_").replace(/[^a-zA-Z0-9_]/g, "_");
+}
 
-# Disable file completions
-complete -c of -f
+/** Strip characters that would break single-quoted shell strings. */
+function escapeDescription(desc: string): string {
+	return desc.replace(/['\\]/g, "");
+}
 
-# Detect exact nested notification context: of task notification <verb>
-function __of_seen_task_notification
-    set -l cmd (commandline -opc)
-    test (count $cmd) -ge 3; and test "$cmd[2]" = "task"; and test "$cmd[3]" = "notification"
-end
+// ── bash ────────────────────────────────────────────────────────────────────
 
-# Top-level commands
-complete -c of -n __fish_use_subcommand -a task -d 'Manage tasks'
-complete -c of -n __fish_use_subcommand -a project -d 'Manage projects'
-complete -c of -n __fish_use_subcommand -a tag -d 'Manage tags'
-complete -c of -n __fish_use_subcommand -a folder -d 'Manage folders'
-complete -c of -n __fish_use_subcommand -a inbox -d 'Manage inbox'
-complete -c of -n __fish_use_subcommand -a bulk -d 'Bulk operations'
-complete -c of -n __fish_use_subcommand -a forecast -d 'Show forecast view'
-complete -c of -n __fish_use_subcommand -a review -d 'Weekly review report'
-complete -c of -n __fish_use_subcommand -a stats -d 'Statistics overview'
-complete -c of -n __fish_use_subcommand -a completion -d 'Output shell completions'
+function generateBash(tree: CommandNode[]): string {
+	const nouns = tree.map((n) => n.name).join(" ");
+	const verbVars: string[] = [];
+	const verbCases: string[] = [];
+	const nestedIfs: string[] = [];
 
-# task subcommands
-complete -c of -n '__fish_seen_subcommand_from task' -a add -d 'Create a task'
-complete -c of -n '__fish_seen_subcommand_from task' -a list -d 'List tasks'
-complete -c of -n '__fish_seen_subcommand_from task' -a update -d 'Update a task'
-complete -c of -n '__fish_seen_subcommand_from task' -a complete -d 'Complete a task'
-complete -c of -n '__fish_seen_subcommand_from task' -a search -d 'Search tasks'
-complete -c of -n '__fish_seen_subcommand_from task' -a show -d 'Show task detail'
-complete -c of -n '__fish_seen_subcommand_from task' -a subtask -d 'Add a subtask'
-complete -c of -n '__fish_seen_subcommand_from task' -a tag -d 'Apply tags to a task'
-complete -c of -n '__fish_seen_subcommand_from task' -a notification -d 'Manage task notifications'
-complete -c of -n '__of_seen_task_notification' -a list -d 'List task notifications'
-complete -c of -n '__of_seen_task_notification' -a add -d 'Add task notification'
-complete -c of -n '__of_seen_task_notification' -a update -d 'Update task notification'
-complete -c of -n '__of_seen_task_notification' -a delete -d 'Delete task notification'
-complete -c of -n '__of_seen_task_notification' -a clear -d 'Clear task notifications'
+	for (const noun of tree) {
+		if (noun.children.length === 0) continue;
+		const v = varName(noun.name, "verbs");
+		verbVars.push(`\tlocal ${v}="${noun.children.map((c) => c.name).join(" ")}"`);
+		verbCases.push(`\t\t\t\t${noun.name}) COMPREPLY=( $(compgen -W "\${${v}}" -- "\${cur}") ) ;;`);
+		for (const verb of noun.children) {
+			if (verb.children.length === 0) continue;
+			const nv = varName(noun.name, verb.name, "verbs");
+			verbVars.push(`\tlocal ${nv}="${verb.children.map((c) => c.name).join(" ")}"`);
+			nestedIfs.push(
+				`\t\t\tif [[ "\${words[1]}" == "${noun.name}" && "\${words[2]}" == "${verb.name}" ]]; then\n\t\t\t\tCOMPREPLY=( $(compgen -W "\${${nv}}" -- "\${cur}") )\n\t\t\tfi`,
+			);
+		}
+	}
 
-# project subcommands
-complete -c of -n '__fish_seen_subcommand_from project' -a add -d 'Create a project'
-complete -c of -n '__fish_seen_subcommand_from project' -a list -d 'List projects'
-complete -c of -n '__fish_seen_subcommand_from project' -a show -d 'Show project detail'
-complete -c of -n '__fish_seen_subcommand_from project' -a update -d 'Update a project'
-complete -c of -n '__fish_seen_subcommand_from project' -a rename -d 'Rename a project'
-complete -c of -n '__fish_seen_subcommand_from project' -a delete -d 'Delete a project'
+	return [
+		"# bash completion for of (omnifocus-cli)",
+		"_of_completion() {",
+		"\tlocal cur prev words cword",
+		"\t_init_completion || return",
+		"",
+		`\tlocal nouns="${nouns}"`,
+		...verbVars,
+		"",
+		'\tcase "${cword}" in',
+		'\t\t1) COMPREPLY=( $(compgen -W "${nouns}" -- "${cur}") ) ;;',
+		"\t\t2)",
+		'\t\t\tcase "${prev}" in',
+		...verbCases,
+		"\t\t\tesac",
+		"\t\t\t;;",
+		"\t\t3)",
+		...nestedIfs,
+		"\t\t\t;;",
+		"\tesac",
+		"}",
+		"complete -F _of_completion of",
+	].join("\n");
+}
 
-# tag subcommands
-complete -c of -n '__fish_seen_subcommand_from tag' -a add -d 'Create a tag'
-complete -c of -n '__fish_seen_subcommand_from tag' -a list -d 'List tags'
-complete -c of -n '__fish_seen_subcommand_from tag' -a rename -d 'Rename a tag'
-complete -c of -n '__fish_seen_subcommand_from tag' -a delete -d 'Delete a tag'
-complete -c of -n '__fish_seen_subcommand_from tag' -a tasks -d 'List tasks by tag'
+// ── zsh ─────────────────────────────────────────────────────────────────────
 
-# folder subcommands
-complete -c of -n '__fish_seen_subcommand_from folder' -a add -d 'Create a folder'
-complete -c of -n '__fish_seen_subcommand_from folder' -a list -d 'List folders'
+function generateZsh(tree: CommandNode[]): string {
+	const nounItems = tree.map((n) => `\t\t'${n.name}:${escapeDescription(n.description)}'`);
+	const cmdArrays: string[] = [];
+	const verbCases: string[] = [];
+	const nestedIfs: string[] = [];
 
-# inbox subcommands
-complete -c of -n '__fish_seen_subcommand_from inbox' -a list -d 'List inbox items'
-complete -c of -n '__fish_seen_subcommand_from inbox' -a add -d 'Add to inbox'
-complete -c of -n '__fish_seen_subcommand_from inbox' -a process -d 'Process inbox item'
-complete -c of -n '__fish_seen_subcommand_from inbox' -a process-many -d 'Process many inbox items from stdin JSON'
+	for (const noun of tree) {
+		if (noun.children.length === 0) continue;
+		const v = varName(noun.name, "cmds");
+		cmdArrays.push(
+			`\tlocal -a ${v}\n\t${v}=(\n${noun.children
+				.map((c) => `\t\t'${c.name}:${escapeDescription(c.description)}'`)
+				.join("\n")}\n\t)`,
+		);
+		verbCases.push(`\t\t\t\t${noun.name}) _describe 'subcommand' ${v} ;;`);
+		for (const verb of noun.children) {
+			if (verb.children.length === 0) continue;
+			const nv = varName(noun.name, verb.name, "cmds");
+			cmdArrays.push(
+				`\tlocal -a ${nv}\n\t${nv}=(\n${verb.children
+					.map((c) => `\t\t'${c.name}:${escapeDescription(c.description)}'`)
+					.join("\n")}\n\t)`,
+			);
+			nestedIfs.push(
+				`\t\t\tif [[ "\$words[2]" == "${noun.name}" && "\$words[3]" == "${verb.name}" ]]; then\n\t\t\t\t_describe 'subcommand' ${nv}\n\t\t\tfi`,
+			);
+		}
+	}
 
-# bulk subcommands
-complete -c of -n '__fish_seen_subcommand_from bulk' -a create -d 'Bulk create tasks'
-complete -c of -n '__fish_seen_subcommand_from bulk' -a update -d 'Bulk update tasks'
-complete -c of -n '__fish_seen_subcommand_from bulk' -a complete -d 'Bulk complete tasks'
+	return [
+		"#compdef of",
+		"# zsh completion for of (omnifocus-cli)",
+		"",
+		"_of() {",
+		"\tlocal -a nouns",
+		"\tnouns=(",
+		...nounItems,
+		"\t)",
+		"",
+		...cmdArrays,
+		"",
+		"\t_arguments -C '1:noun:->noun' '2:verb:->verb' '*::args:->args'",
+		"",
+		'\tcase "$state" in',
+		"\t\tnoun)   _describe 'command' nouns ;;",
+		"\t\tverb)",
+		'\t\t\tcase "$words[2]" in',
+		...verbCases,
+		"\t\t\tesac",
+		"\t\t\t;;",
+		"\t\targs)",
+		...nestedIfs,
+		"\t\t\t;;",
+		"\tesac",
+		"}",
+		"",
+		'_of "$@"',
+	].join("\n");
+}
 
-# Global options
-complete -c of -l json -d 'Output in JSON format'
-complete -c of -l help -d 'Show help'
-complete -c of -s V -l version -d 'Show version'`;
+// ── fish ────────────────────────────────────────────────────────────────────
 
-const SHELLS: Record<string, string> = {
-	bash: BASH_COMPLETION,
-	zsh: ZSH_COMPLETION,
-	fish: FISH_COMPLETION,
+function generateFish(tree: CommandNode[]): string {
+	const lines: string[] = [
+		"# fish completion for of (omnifocus-cli)",
+		"",
+		"# Disable file completions",
+		"complete -c of -f",
+		"",
+	];
+
+	const nestedFunctions: string[] = [];
+	const nestedRules: string[] = [];
+
+	for (const noun of tree) {
+		for (const verb of noun.children) {
+			if (verb.children.length === 0) continue;
+			const fn = `__of_seen_${varName(noun.name, verb.name)}`;
+			nestedFunctions.push(
+				`# Detect exact nested context: of ${noun.name} ${verb.name} <verb>`,
+				`function ${fn}`,
+				"    set -l cmd (commandline -opc)",
+				`    test (count $cmd) -ge 3; and test "$cmd[2]" = "${noun.name}"; and test "$cmd[3]" = "${verb.name}"`,
+				"end",
+				"",
+			);
+			for (const sub of verb.children) {
+				nestedRules.push(
+					`complete -c of -n '${fn}' -a ${sub.name} -d '${escapeDescription(sub.description)}'`,
+				);
+			}
+		}
+	}
+
+	lines.push(...nestedFunctions);
+	lines.push("# Top-level commands");
+	for (const noun of tree) {
+		lines.push(
+			`complete -c of -n __fish_use_subcommand -a ${noun.name} -d '${escapeDescription(noun.description)}'`,
+		);
+	}
+
+	for (const noun of tree) {
+		if (noun.children.length === 0) continue;
+		lines.push("", `# ${noun.name} subcommands`);
+		for (const verb of noun.children) {
+			lines.push(
+				`complete -c of -n '__fish_seen_subcommand_from ${noun.name}' -a ${verb.name} -d '${escapeDescription(verb.description)}'`,
+			);
+		}
+	}
+
+	if (nestedRules.length > 0) {
+		lines.push("", "# nested subcommands");
+		lines.push(...nestedRules);
+	}
+
+	lines.push(
+		"",
+		"# Global options",
+		"complete -c of -l json -d 'Output in JSON format'",
+		"complete -c of -l help -d 'Show help'",
+		"complete -c of -s V -l version -d 'Show version'",
+	);
+
+	return lines.join("\n");
+}
+
+// ── Public API ──────────────────────────────────────────────────────────────
+
+const GENERATORS: Record<string, (tree: CommandNode[]) => string> = {
+	bash: generateBash,
+	zsh: generateZsh,
+	fish: generateFish,
 };
+
+/**
+ * Generate the completion script for a shell from the assembled program.
+ * @throws CLIError for unsupported shells.
+ */
+export function generateCompletionScript(program: Command, shell: string): string {
+	const generator = GENERATORS[shell];
+	if (!generator) {
+		throw new CLIError(`Unknown shell: ${shell}. Supported: ${Object.keys(GENERATORS).join(", ")}`);
+	}
+	return generator(toTree(program));
+}
 
 export function registerCompletionCommand(parent: Command): void {
 	parent
@@ -189,11 +239,6 @@ export function registerCompletionCommand(parent: Command): void {
 		.description("Output shell completion script")
 		.argument("<shell>", "Shell type (bash, zsh, fish)")
 		.action((shell: string) => {
-			const script = SHELLS[shell];
-			if (!script) {
-				console.error(`Unknown shell: ${shell}. Supported: ${Object.keys(SHELLS).join(", ")}`);
-				process.exit(1);
-			}
-			console.log(script);
+			console.log(generateCompletionScript(parent, shell));
 		});
 }

@@ -27,7 +27,7 @@ export function registerTasksCommand(parent: Command, client: OmniFocusClient): 
 				outputLimitNotice(data.length, opts.limit as number);
 			} catch (error) {
 				if (error instanceof BridgeError) {
-					outputError(error.format());
+					outputError(error);
 					process.exit(1);
 				}
 				throw error;

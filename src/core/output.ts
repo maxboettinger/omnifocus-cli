@@ -6,6 +6,7 @@
  * - json: raw JSON for piping/scripting
  */
 
+import { BridgeError, type CLIError } from "./errors.js";
 import type { OFFolder, OFProject, OFProjectCompact, OFTask, OutputFormat } from "./types.js";
 
 // ── ANSI helpers ────────────────────────────────────────────────────────────
@@ -19,26 +20,44 @@ const YELLOW = "\x1b[33m";
 const BLUE = "\x1b[34m";
 const CYAN = "\x1b[36m";
 
+/**
+ * Standard color conventions: NO_COLOR disables, FORCE_COLOR overrides,
+ * otherwise color only when the target stream is a terminal. Checked per
+ * call so tests (and long-lived processes) see env/TTY changes.
+ */
+function colorEnabled(stream: NodeJS.WriteStream): boolean {
+	const noColor = process.env.NO_COLOR;
+	if (noColor !== undefined && noColor !== "") return false;
+	const forceColor = process.env.FORCE_COLOR;
+	if (forceColor !== undefined && forceColor !== "" && forceColor !== "0") return true;
+	return stream.isTTY === true;
+}
+
+function paint(code: string, s: string, stream: NodeJS.WriteStream = process.stdout): string {
+	return colorEnabled(stream) ? `${code}${s}${RESET}` : s;
+}
+
+// Content helpers are stdout-keyed: human-formatted content goes to stdout.
 function bold(s: string): string {
-	return `${BOLD}${s}${RESET}`;
+	return paint(BOLD, s);
 }
 function dim(s: string): string {
-	return `${DIM}${s}${RESET}`;
+	return paint(DIM, s);
 }
 function red(s: string): string {
-	return `${RED}${s}${RESET}`;
+	return paint(RED, s);
 }
 function green(s: string): string {
-	return `${GREEN}${s}${RESET}`;
+	return paint(GREEN, s);
 }
 function yellow(s: string): string {
-	return `${YELLOW}${s}${RESET}`;
+	return paint(YELLOW, s);
 }
 function blue(s: string): string {
-	return `${BLUE}${s}${RESET}`;
+	return paint(BLUE, s);
 }
 function cyan(s: string): string {
-	return `${CYAN}${s}${RESET}`;
+	return paint(CYAN, s);
 }
 
 // ── Format detection ────────────────────────────────────────────────────────
@@ -63,12 +82,38 @@ export function outputSuccess(message: string): void {
 	console.log(`${green("✓")} ${message}`);
 }
 
-export function outputError(message: string): void {
-	console.error(`${red("✗")} ${message}`);
+/**
+ * Report an error on stderr. When stderr is piped (not a TTY), emits one
+ * structured JSON line — `{"ok":false,"error":...,"candidates":[...]?}`,
+ * mirroring the bridge protocol — so scripts and agents never have to parse
+ * decorated human text. On a terminal, renders human-readable text
+ * (including "Did you mean:" candidates for BridgeErrors).
+ */
+export function outputError(error: string | CLIError): void {
+	const message = typeof error === "string" ? error : error.message;
+	const candidates = error instanceof BridgeError ? error.candidates : undefined;
+
+	if (process.stderr.isTTY !== true) {
+		const payload: Record<string, unknown> = { ok: false, error: message };
+		if (candidates && candidates.length > 0) payload.candidates = candidates;
+		console.error(JSON.stringify(payload));
+		return;
+	}
+
+	const text = error instanceof BridgeError ? error.format() : message;
+	console.error(`${paint(RED, "✗", process.stderr)} ${text}`);
 }
 
+/**
+ * Report a warning on stderr. Structured (`{"warning":...}`) when stderr
+ * is piped, human-readable on a terminal — same contract as outputError.
+ */
 export function outputWarning(message: string): void {
-	console.error(`${yellow("!")} ${message}`);
+	if (process.stderr.isTTY !== true) {
+		console.error(JSON.stringify({ warning: message }));
+		return;
+	}
+	console.error(`${paint(YELLOW, "!", process.stderr)} ${message}`);
 }
 
 /**
@@ -77,9 +122,7 @@ export function outputWarning(message: string): void {
  */
 export function outputLimitNotice(count: number, limit: number): void {
 	if (count !== limit) return;
-	console.error(
-		`${yellow("!")} showing ${count} items (limit reached) — pass --limit <n> for more`,
-	);
+	outputWarning(`showing ${count} items (limit reached) — pass --limit <n> for more`);
 }
 
 // ── Task formatting ─────────────────────────────────────────────────────────
@@ -318,7 +361,8 @@ function formatDateShort(iso: string): string {
 
 function formatDateLong(iso: string): string {
 	const d = new Date(iso);
-	return d.toLocaleDateString("en-US", {
+	// undefined = the user's own locale
+	return d.toLocaleDateString(undefined, {
 		weekday: "short",
 		year: "numeric",
 		month: "short",

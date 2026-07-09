@@ -92,7 +92,7 @@ export function registerReviewCommand(program: Command, client: OmniFocusClient)
 				}
 			} catch (error) {
 				if (error instanceof BridgeError) {
-					outputError(error.format());
+					outputError(error);
 					process.exit(1);
 				}
 				throw error;

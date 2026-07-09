@@ -70,7 +70,7 @@ export function registerUpdateCommand(parent: Command, client: OmniFocusClient):
 				outputChanges("task", data.id, data.changes);
 			} catch (error) {
 				if (error instanceof BridgeError) {
-					outputError(error.format());
+					outputError(error);
 					process.exit(1);
 				}
 				throw error;

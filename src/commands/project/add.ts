@@ -46,7 +46,7 @@ export function registerAddCommand(parent: Command, client: OmniFocusClient): vo
 				console.log(formatProjectDetail(data.project));
 			} catch (error) {
 				if (error instanceof BridgeError) {
-					outputError(error.format());
+					outputError(error);
 					process.exit(1);
 				}
 				throw error;

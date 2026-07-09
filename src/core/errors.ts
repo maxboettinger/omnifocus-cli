@@ -65,3 +65,33 @@ export class ConfirmationRequiredError extends CLIError {
 		this.name = "ConfirmationRequiredError";
 	}
 }
+
+// ── Known first-run failure mapping ─────────────────────────────────────────
+
+const AUTOMATION_PERMISSION_HELP = [
+	"Not authorized to control OmniFocus via Apple Events (macOS error -1743).",
+	"Grant permission in System Settings → Privacy & Security → Automation:",
+	"find your terminal app in the list and enable OmniFocus, then re-run the command.",
+].join("\n");
+
+const OMNIFOCUS_MISSING_HELP = [
+	"OmniFocus could not be found. This CLI controls OmniFocus for Mac via Apple Events,",
+	"so OmniFocus must be installed: https://www.omnigroup.com/omnifocus/",
+].join("\n");
+
+/**
+ * Recognize well-known environment failures (buried in raw JXA/osascript
+ * error text) and translate them into actionable guidance. Returns null
+ * when the failure is not one of the known cases.
+ */
+export function matchKnownBridgeFailure(raw: string): string | null {
+	if (/not authorized to send apple events|-1743/i.test(raw)) {
+		return AUTOMATION_PERMISSION_HELP;
+	}
+	if (
+		/application can't be found|OmniFocus could not be opened|can't find application/i.test(raw)
+	) {
+		return OMNIFOCUS_MISSING_HELP;
+	}
+	return null;
+}

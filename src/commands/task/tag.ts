@@ -31,7 +31,7 @@ export function registerTagCommand(parent: Command, client: OmniFocusClient): vo
 				outputSuccess(`  Applied: ${data.applied.join(", ")}`);
 			} catch (error) {
 				if (error instanceof BridgeError) {
-					outputError(error.format());
+					outputError(error);
 					process.exit(1);
 				}
 				throw error;

@@ -40,7 +40,7 @@ export function registerDeleteCommand(parent: Command, client: OmniFocusClient):
 				outputSuccess(`${action}: ${bold(data.name)}`);
 			} catch (error) {
 				if (error instanceof BridgeError) {
-					outputError(error.format());
+					outputError(error);
 					process.exit(1);
 				}
 				throw error;

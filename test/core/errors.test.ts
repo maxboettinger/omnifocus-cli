@@ -4,6 +4,7 @@ import {
 	CLIError,
 	ConfirmationRequiredError,
 	JXAExecutionError,
+	matchKnownBridgeFailure,
 } from "../../src/core/errors.js";
 
 describe("CLIError", () => {
@@ -65,5 +66,37 @@ describe("ConfirmationRequiredError", () => {
 		const err = new ConfirmationRequiredError("Delete project");
 		expect(err.message).toContain("Delete project");
 		expect(err.message).toContain("--confirm");
+	});
+});
+
+describe("matchKnownBridgeFailure", () => {
+	test("maps Apple Events authorization denial (-1743) to actionable guidance", () => {
+		const raw = "execution error: Error: Not authorized to send Apple events to OmniFocus. (-1743)";
+		const mapped = matchKnownBridgeFailure(raw);
+		expect(mapped).toContain("System Settings");
+		expect(mapped).toContain("Automation");
+		expect(mapped).toContain("-1743");
+	});
+
+	test("maps wrapped operation failures mentioning -1743", () => {
+		const raw = "Operation 'task.list' failed: Not authorized to send Apple events to OmniFocus.";
+		expect(matchKnownBridgeFailure(raw)).toContain("Automation");
+	});
+
+	test("maps app-not-found to an install hint", () => {
+		const raw = "execution error: Error: Application can't be found. (-2700)";
+		const mapped = matchKnownBridgeFailure(raw);
+		expect(mapped).toContain("OmniFocus");
+		expect(mapped).toContain("omnigroup.com");
+	});
+
+	test("maps the bridge's own could-not-open failure", () => {
+		const raw = "OmniFocus could not be opened: Application can't be found.";
+		expect(matchKnownBridgeFailure(raw)).toContain("omnigroup.com");
+	});
+
+	test("returns null for unrelated failures", () => {
+		expect(matchKnownBridgeFailure('Task not found: "foo"')).toBeNull();
+		expect(matchKnownBridgeFailure("syntax error on line 5")).toBeNull();
 	});
 });

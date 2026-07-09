@@ -1603,18 +1603,41 @@ ops["collect"] = function(of, doc, p) {
 
 // ── Dispatcher ──────────────────────────────────────────────────────────────
 
+// Large command payloads (bulk ops, long notes) are piped through stdin
+// instead of argv, which has a hard size limit (ARG_MAX). The TS side sends
+// the literal argument "@stdin" to signal this.
+function readCommandFromStdin() {
+    ObjC.import('Foundation');
+    var data = $.NSFileHandle.fileHandleWithStandardInput.readDataToEndOfFile;
+    var str = ObjC.unwrap($.NSString.alloc.initWithDataEncoding(data, $.NSUTF8StringEncoding));
+    if (typeof str !== "string") throw new Error("stdin was not valid UTF-8");
+    return str;
+}
+
 function run(args) {
     if (args.length === 0) return fail("Command JSON required as first argument");
+    var commandJson = args[0];
+    if (commandJson === "@stdin") {
+        try { commandJson = readCommandFromStdin(); }
+        catch(e) { return fail("Failed to read command JSON from stdin: " + e.message); }
+    }
     var cmd;
-    try { cmd = JSON.parse(args[0]); } catch(e) { return fail("Invalid command JSON: " + e.message); }
+    try { cmd = JSON.parse(commandJson); } catch(e) { return fail("Invalid command JSON: " + e.message); }
     if (!cmd.op) return fail("Missing 'op' in command");
 
     var handler = ops[cmd.op];
     if (!handler) return fail("Unknown operation: " + cmd.op);
 
-    var of = Application('OmniFocus');
-    of.includeStandardAdditions = true;
-    var doc = of.defaultDocument;
+    // Application() throws when OmniFocus is not installed; keep that inside
+    // a try so the CLI gets a structured failure instead of raw osascript stderr.
+    var of, doc;
+    try {
+        of = Application('OmniFocus');
+        of.includeStandardAdditions = true;
+        doc = of.defaultDocument;
+    } catch(e) {
+        return fail("OmniFocus could not be opened: " + e.message);
+    }
 
     try {
         return handler(of, doc, cmd.params || {});

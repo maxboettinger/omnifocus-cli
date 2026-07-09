@@ -124,7 +124,7 @@ export function registerForecastCommand(program: Command, client: OmniFocusClien
 				);
 			} catch (error) {
 				if (error instanceof BridgeError) {
-					outputError(error.format());
+					outputError(error);
 					process.exit(1);
 				}
 				throw error;

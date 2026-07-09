@@ -57,7 +57,7 @@ export function registerUpdateCommand(parent: Command, client: OmniFocusClient):
 				outputSuccess(`Updated notification ${data.notification.id} on: ${data.taskName}`);
 			} catch (error) {
 				if (error instanceof BridgeError) {
-					outputError(error.format());
+					outputError(error);
 					process.exit(1);
 				}
 				throw error;

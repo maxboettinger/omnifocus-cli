@@ -10,15 +10,8 @@ import {
 	red,
 	resolveFormat,
 } from "../../core/output.js";
+import { readStdin } from "../../core/stdin.js";
 import type { BulkUpdateInput, OmniFocusClient } from "../../core/types.js";
-
-async function readStdin(): Promise<string> {
-	const chunks: Buffer[] = [];
-	for await (const chunk of process.stdin) {
-		chunks.push(chunk as Buffer);
-	}
-	return Buffer.concat(chunks).toString("utf-8");
-}
 
 export function registerBulkUpdateCommand(parent: Command, client: OmniFocusClient): void {
 	parent
@@ -30,7 +23,7 @@ export function registerBulkUpdateCommand(parent: Command, client: OmniFocusClie
 				const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);
 
 				// Read JSON from stdin
-				const input = await readStdin();
+				const input = await readStdin(`echo '[{"id":"abc","due":"2026-04-01"}]' | of bulk update`);
 				if (!input.trim()) {
 					outputError("No input provided. Expected JSON array of update objects on stdin.");
 					process.exit(1);
@@ -108,7 +101,7 @@ export function registerBulkUpdateCommand(parent: Command, client: OmniFocusClie
 				}
 			} catch (error) {
 				if (error instanceof BridgeError) {
-					outputError(error.format());
+					outputError(error);
 					process.exit(1);
 				}
 				throw error;

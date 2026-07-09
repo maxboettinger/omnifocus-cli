@@ -6,7 +6,7 @@
  */
 
 import { executeBridge } from "./bridge.js";
-import { BridgeError } from "./errors.js";
+import { BridgeError, matchKnownBridgeFailure } from "./errors.js";
 import type {
 	BridgeResponse,
 	BulkCreateInput,
@@ -36,7 +36,8 @@ import type {
  */
 export function unwrapBridgeResponse<T>(response: BridgeResponse<T>): T {
 	if (!response.ok) {
-		throw new BridgeError(response.error, response.candidates);
+		const known = matchKnownBridgeFailure(response.error);
+		throw new BridgeError(known ?? response.error, response.candidates);
 	}
 	return response.data;
 }

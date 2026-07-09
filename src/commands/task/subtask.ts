@@ -65,7 +65,7 @@ export function registerSubtaskCommand(parent: Command, client: OmniFocusClient)
 				outputSuccess(`  Parent: ${data.parent.name} [${data.parent.project}]`);
 			} catch (error) {
 				if (error instanceof BridgeError) {
-					outputError(error.format());
+					outputError(error);
 					process.exit(1);
 				}
 				throw error;

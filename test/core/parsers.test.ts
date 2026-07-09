@@ -10,11 +10,21 @@ describe("parseDurationToSeconds", () => {
 		expect(parseDurationToSeconds("-1h")).toBe(-3600);
 	});
 
+	test("accepts explicit zero durations (e.g. notification exactly at due time)", () => {
+		expect(parseDurationToSeconds("0s")).toBe(0);
+		expect(parseDurationToSeconds("0m")).toBe(0);
+		expect(parseDurationToSeconds("0h")).toBe(0);
+		expect(parseDurationToSeconds("0h0m0s")).toBe(0);
+		expect(parseDurationToSeconds("-0s")).toBe(0);
+	});
+
 	test("rejects malformed durations", () => {
 		expect(() => parseDurationToSeconds("")).toThrow();
 		expect(() => parseDurationToSeconds("abc")).toThrow();
 		expect(() => parseDurationToSeconds("1m30h")).toThrow();
 		expect(() => parseDurationToSeconds("+")).toThrow();
+		expect(() => parseDurationToSeconds("-")).toThrow();
+		expect(() => parseDurationToSeconds("  ")).toThrow();
 	});
 });
 

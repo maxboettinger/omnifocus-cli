@@ -24,7 +24,7 @@ export function registerAddCommand(parent: Command, client: OmniFocusClient): vo
 				outputSuccess(`Created tag: ${data.name}`);
 			} catch (error) {
 				if (error instanceof BridgeError) {
-					outputError(error.format());
+					outputError(error);
 					process.exit(1);
 				}
 				throw error;

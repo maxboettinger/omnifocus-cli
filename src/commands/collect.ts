@@ -25,7 +25,7 @@ export function registerCollectCommand(program: Command, client: OmniFocusClient
 				outputCollectedTasks(data);
 			} catch (error) {
 				if (error instanceof BridgeError) {
-					outputError(error.format());
+					outputError(error);
 					process.exit(1);
 				}
 				throw error;

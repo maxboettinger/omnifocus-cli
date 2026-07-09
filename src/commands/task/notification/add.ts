@@ -81,7 +81,7 @@ export function registerAddCommand(parent: Command, client: OmniFocusClient): vo
 				outputSuccess(`Added notification ${data.notification.id} to: ${data.taskName}`);
 			} catch (error) {
 				if (error instanceof BridgeError) {
-					outputError(error.format());
+					outputError(error);
 					process.exit(1);
 				}
 				throw error;

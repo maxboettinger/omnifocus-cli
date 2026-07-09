@@ -10,6 +10,7 @@ import {
 	red,
 	resolveFormat,
 } from "../../core/output.js";
+import { readStdin } from "../../core/stdin.js";
 import type { InboxProcessOptions, OmniFocusClient } from "../../core/types.js";
 
 interface BatchProcessResult {
@@ -18,14 +19,6 @@ interface BatchProcessResult {
 	error?: string;
 	changes?: string[];
 	taskName?: string;
-}
-
-async function readStdin(): Promise<string> {
-	const chunks: Buffer[] = [];
-	for await (const chunk of process.stdin) {
-		chunks.push(chunk as Buffer);
-	}
-	return Buffer.concat(chunks).toString("utf-8");
 }
 
 function hasValidId(input: unknown): input is { id: string } {
@@ -43,7 +36,9 @@ export function registerProcessManyCommand(parent: Command, client: OmniFocusCli
 		.action(async (opts: Record<string, unknown>, cmd: Command) => {
 			const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);
 
-			const input = await readStdin();
+			const input = await readStdin(
+				`echo '[{"id":"id1","project":"Errands"}]' | of inbox process-many`,
+			);
 			if (!input.trim()) {
 				outputError("No input provided. Expected JSON array of inbox process objects on stdin.");
 				process.exit(1);

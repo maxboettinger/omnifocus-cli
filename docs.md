@@ -118,6 +118,8 @@ Operations: `task.create`, `task.get`, `task.update`, `task.complete`, `task.del
 
 **`plannedDate` is guarded everywhere.** Added for OmniFocus 4.7+, every access is wrapped in try/catch. The distinction between `deferDate` (hidden until date) and `plannedDate` (scheduled but available) is significant: forecast treats `planned_today` as the primary "what to do today" bucket.
 
+**Forecast filters on effective completion status.** A task inside a completed or dropped project keeps its own `completed` flag false; only `effectivelyCompleted`/`effectivelyDropped` reflect the container. The forecast op excludes tasks where either is true (guarded batch reads, falling back to the plain flag on older dictionaries), matching OmniFocus's own Forecast view. `task list`/`task search`/`stats` still filter on the plain flag. See `@/src/jxa/docs.md`.
+
 **Performance pattern:** Read-heavy operations (forecast, task list, weekly review, stats, project get/list) use batch property access — reading all values for a property in a single Apple Event (`doc.flattenedTasks.name()`, or `project.flattenedTasks.completed()` scoped to one project) — then indexing into arrays, rather than calling a property accessor per task. This is required, not just faster: on large databases the per-task form issues one Apple Event per property per task and times out.
 
 **Task lookup cascade:** Tries ID first (fast path via `flattenedTasks.byId`), then exact name, then substring. On ambiguity, returns up to 5 candidates with IDs for disambiguation.

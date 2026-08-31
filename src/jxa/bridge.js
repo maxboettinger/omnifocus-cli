@@ -1246,6 +1246,10 @@ ops["forecast"] = function(of, doc, p) {
     var allFlagged = tasks.flagged(), allNames = tasks.name(), allIds = tasks.id(), allNotes = tasks.note();
     var allEstimates; try { allEstimates = tasks.estimatedMinutes(); } catch(e) { allEstimates = []; }
     var allPlannedDates; try { allPlannedDates = tasks.plannedDate(); } catch(e) { allPlannedDates = []; }
+    // A task inside a completed/dropped project (or parent task) keeps its own
+    // completed flag false — only the effective status reflects the container.
+    var allEffCompleted; try { allEffCompleted = tasks.effectivelyCompleted(); } catch(e) { allEffCompleted = []; }
+    var allEffDropped; try { allEffDropped = tasks.effectivelyDropped(); } catch(e) { allEffDropped = []; }
     var total = allCompleted.length;
 
     var overdueIdx = [], dueTodayIdx = [], plannedTodayIdx = [], deferredTodayIdx = [];
@@ -1253,6 +1257,8 @@ ops["forecast"] = function(of, doc, p) {
 
     for (var i = 0; i < total; i++) {
         if (allCompleted[i]) continue;
+        if (allEffCompleted.length > i && allEffCompleted[i]) continue;
+        if (allEffDropped.length > i && allEffDropped[i]) continue;
         var due = allDueDates[i], defer = allDeferDates[i];
         var planned = allPlannedDates.length > i ? allPlannedDates[i] : null;
         if (defer && defer > todayEnd && (!due || due > todayEnd) && (!planned || planned > todayEnd)) continue;

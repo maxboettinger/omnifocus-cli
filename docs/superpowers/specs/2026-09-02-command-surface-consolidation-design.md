@@ -183,6 +183,11 @@ alias is present in every shell script.
 | `inbox add` vs `task add` | same register function, two mounts |
 | bridge `inbox.add` vs `task.create`, `task.subtask` vs `task.create` | `task.create` |
 | `bulk create` naming vs `add` | `bulk add` |
+| stdin read + JSON parse + array/empty validation ×4 (bulk ×3, process-many) | `readJsonArray()` in `core/stdin.ts` |
+| batch success/failure summary rendering ×4 | `outputBatchSummary()` in `core/output.ts` |
+| bridge `bulk.create` re-implements `task.create`'s body | `createTaskRecord()` shared by both ops |
+| test harness `runCommand` ×3 (`helpers/run.ts`, `cli.test.ts`, `stdin.test.ts`) + stdin stubbing ×2 | `test/helpers/run.ts` + `withStdin()` in `test/helpers/env.ts` |
+| option-parsing test scaffolding per option-group test | `test/helpers/parse.ts` |
 
 ## Testing
 

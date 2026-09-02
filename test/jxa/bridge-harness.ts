@@ -50,6 +50,44 @@ export function makeJxaObject(props: Record<string, JxaValue>): Record<string, (
 }
 
 /**
+ * A mutable JXA object: reads are zero-arg getter calls (`task.dueDate()`),
+ * writes are plain assignments (`task.dueDate = d`) that later reads observe —
+ * exactly how JXA object specifiers behave. Keys listed in `readonlyKeys`
+ * silently ignore writes, simulating OmniFocus refusing a change.
+ */
+export function makeMutableJxaObject(
+	props: Record<string, JxaValue>,
+	opts: { readonlyKeys?: string[] } = {},
+): Record<string, unknown> {
+	const state: Record<string, JxaValue> = { ...props };
+	const readonly = new Set(opts.readonlyKeys ?? []);
+	return new Proxy(
+		{},
+		{
+			get: (_target, key) => {
+				if (typeof key !== "string") return undefined;
+				return () => state[key] ?? null;
+			},
+			set: (_target, key, value) => {
+				if (typeof key === "string" && !readonly.has(key)) state[key] = value;
+				return true;
+			},
+		},
+	);
+}
+
+export interface RunBridgeOptions {
+	applicationUnavailable?: boolean;
+	/**
+	 * Stub for `of.evaluateJavascript` (Omni Automation). The bridge embeds a
+	 * JSON payload in every script it runs; the harness extracts it and hands
+	 * it to this function, whose return value is what the script "returns".
+	 * Throw to simulate Omni Automation itself failing.
+	 */
+	omniAutomation?: (payload: Record<string, unknown>) => unknown;
+}
+
+/**
  * Evaluate bridge.js against a fake OmniFocus document and dispatch one command.
  * Returns the parsed JSON response the bridge would print.
  */
@@ -57,8 +95,9 @@ export function runBridge(
 	doc: Record<string, unknown>,
 	op: string,
 	params: Record<string, unknown> = {},
+	opts?: RunBridgeOptions,
 ): BridgeResponse {
-	return runBridgeArgs(doc, [JSON.stringify({ op, params })]);
+	return runBridgeArgs(doc, [JSON.stringify({ op, params })], undefined, opts);
 }
 
 /**
@@ -71,12 +110,18 @@ export function runBridgeArgs(
 	doc: Record<string, unknown>,
 	args: string[],
 	stdinContent?: string | null,
-	opts?: { applicationUnavailable?: boolean },
+	opts?: RunBridgeOptions,
 ): BridgeResponse {
 	const app = {
 		includeStandardAdditions: false,
 		defaultDocument: doc,
 		delete: () => undefined,
+		evaluateJavascript: (script: string) => {
+			if (!opts?.omniAutomation) throw new Error("Omni Automation is not stubbed in this test");
+			const match = /var payload = (.*);\n/.exec(script);
+			const payload = match ? (JSON.parse(match[1] as string) as Record<string, unknown>) : {};
+			return JSON.stringify(opts.omniAutomation(payload));
+		},
 	};
 	const Application = (name: string) => {
 		// Simulates JXA's behavior when the app is not installed

@@ -49,7 +49,9 @@ of --version
 
 ## Usage
 
-Commands follow a noun-verb pattern: `of <noun> <verb> [args] [options]`
+Commands follow a noun-verb pattern: `of <noun> <verb> [args] [options]`. The most common
+task verbs are also mounted at the root as shortcuts — `of complete 42` is the same command
+as `of task complete 42`.
 
 All commands support `--json` for machine-readable output. When stdout is piped (not a TTY), JSON is the default.
 
@@ -68,7 +70,9 @@ Any command that takes a task reference accepts that number in place of a name o
 full OmniFocus ID:
 
 ```bash
-of task complete 42
+of complete 42                 # shortcut for `of task complete 42`
+of complete 42 127             # several at once
+of move 42 tomorrow            # shortcut for `of task move 42 tomorrow`
 of task update 42 --due 2026-04-01
 of task delete 127 --confirm
 ```
@@ -103,8 +107,13 @@ of task list --filter flagged --limit 10
 of task search "groceries"
 of task show "Buy groceries"
 of task update --id abc123 --due 2026-04-01
+of complete 42                                   # shortcut for `of task complete 42`
+of complete 42 43 "Call mom"                     # several refs; each reported, exit 1 if any failed
 of task complete "Buy groceries"
 of task complete "Buy groceries" --incomplete    # mark incomplete
+of move 42 tomorrow                              # shortcut for `of task move`: reschedule due date
+of move 42 "fri 5pm" --defer mon --planned thu   # any of the three dates, combinable
+of move 42 clear                                 # remove the due date
 of task delete "Buy groceries" --confirm         # permanent deletion
 of task subtask "Buy milk" --parent "Buy groceries"
 of task tag "Buy groceries" --tag urgent
@@ -114,6 +123,42 @@ of task notification update --id abc123 --notification-id notif-1 --repeat clear
 of task notification delete --id abc123 --notification-id notif-1
 of task notification clear --id abc123 --confirm
 ```
+
+`complete` takes any number of task references (short ids, names, or a single `--id`). With
+one reference the JSON output is the completed task object, exactly as before. With several,
+every reference is attempted in order and the JSON output is an array of per-reference
+results — `{"ref", "ok": true, ...task}` or `{"ref", "ok": false, "error", "candidates"?}` —
+and the exit code is `1` if any of them failed.
+
+### Dates
+
+Every date option (`--due`, `--defer`, `--planned`, and `move`'s positional) accepts what
+OmniFocus's own date fields accept, because the CLI hands the text to OmniFocus's parser:
+
+```bash
+of move 42 tomorrow          of move 42 "fri 5pm"        of move 42 2d
+of move 42 "next week"       of move 42 10.9.            of move 42 noon
+of task add "Call mom" --due sat --defer "tom 9am"
+```
+
+When the text names a day but no time, the app's default time for that field (Preferences →
+Dates & Times: due, defer, planned) is applied, exactly as typing it into OmniFocus would.
+Exact ISO forms (`2026-09-10`, `2026-09-10T14:30`) are parsed locally and unchanged: a bare
+ISO date stays at midnight, so existing scripts keep their behavior. `clear` removes a date.
+
+Every date write is read back from OmniFocus and compared; a value the app did not store
+is reported as an error, never as a success. The confirmation lists every date the task now
+carries, in planned → defer → due order, with the ones you changed highlighted:
+
+```
+$ of move 13 tomorrow
+✓ Moved: Pay the invoice (13)
+  • Planned: Wed, Sep 2, 2026 at 09:00 AM
+  ● Due: Thu, Sep 3, 2026 at 06:00 PM
+```
+ Text OmniFocus cannot parse fails with
+`Could not understand date "..."` before anything is changed, and the `changes` list in the
+result shows the resolved time (`due: tomorrow → 2026-09-03T18:00`).
 
 Duration flags (`--offset`, `--repeat`) accept `[-+]?((\\d+h)?(\\d+m)?(\\d+s)?)` such as `-1h`, `30m`, `1h30m`, `90s`, `+2h15m`. Explicit zeros are valid: `--offset 0s` fires a due-relative notification exactly at the due time.
 
@@ -212,7 +257,8 @@ of collect --days 14          # recently completed tasks
 | `task add` | Create a new task |
 | `task list` | List tasks by filter (available, flagged, due-soon, overdue, inbox, all) |
 | `task update` | Update task properties |
-| `task complete` | Complete or mark incomplete |
+| `task complete` | Complete (or reopen with `--incomplete`) one or more tasks |
+| `task move` | Reschedule a task's due (positional), `--defer`, `--planned` dates |
 | `task delete` | Permanently delete a task (requires `--confirm`) |
 | `task search` | Search tasks by name |
 | `task show` | Show task details |
@@ -243,6 +289,8 @@ of collect --days 14          # recently completed tasks
 | `bulk create` | Create tasks from JSON (stdin) |
 | `bulk update` | Update tasks from JSON (stdin) |
 | `bulk complete` | Complete tasks by ID (stdin) |
+| `complete` | Root shortcut for `task complete` |
+| `move` | Root shortcut for `task move` |
 | `forecast` | Daily categorized forecast (overdue, due, planned, upcoming) |
 | `review` | Weekly review summary |
 | `stats` | Task and project statistics |

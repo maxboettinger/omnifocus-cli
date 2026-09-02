@@ -11,7 +11,7 @@
  */
 
 import { BridgeError, type CLIError } from "./errors.js";
-import { assignShortIds } from "./short-ids.js";
+import { assignShortIds, peekShortId } from "./short-ids.js";
 import type { OFFolder, OFProject, OFProjectCompact, OFTask, OutputFormat } from "./types.js";
 import { bold, cyan, dim, green, red, yellow } from "./ui/colors.js";
 
@@ -346,6 +346,39 @@ export function outputChanges(entity: string, name: string, changes: string[]): 
 	outputSuccess(`Updated ${entity}: ${bold(name)}`);
 	for (const change of changes) {
 		console.log(`  ${dim("•")} ${change}`);
+	}
+}
+
+export type DateField = "due" | "defer" | "planned";
+
+/** Display order for a task's dates: how work flows — planned, then defer, then due. */
+const DATE_FIELDS: ReadonlyArray<{
+	field: DateField;
+	label: string;
+	prop: "plannedDate" | "deferDate" | "dueDate";
+}> = [
+	{ field: "planned", label: "Planned", prop: "plannedDate" },
+	{ field: "defer", label: "Defer", prop: "deferDate" },
+	{ field: "due", label: "Due", prop: "dueDate" },
+];
+
+/**
+ * Confirmation for a reschedule: the task's name (with its short id when one
+ * exists) followed by every date the task now carries, read back from
+ * OmniFocus — so what is printed is what the app holds. Fields touched by
+ * the command are highlighted (● green); the rest are listed dimmed for
+ * context. A touched field that was cleared is still listed, as "cleared";
+ * an untouched, unset field is omitted.
+ */
+export function outputMoved(task: OFTask, touched: readonly DateField[]): void {
+	const shortId = peekShortId(task.id);
+	outputSuccess(`Moved: ${bold(task.name)}${shortId != null ? ` (${shortId})` : ""}`);
+	for (const { field, label, prop } of DATE_FIELDS) {
+		const value = task[prop];
+		const isTouched = touched.includes(field);
+		if (!value && !isTouched) continue;
+		const text = `${label}: ${value ? formatDateLong(value) : "cleared"}`;
+		console.log(isTouched ? `  ${green("●")} ${green(text)}` : `  ${dim("•")} ${dim(text)}`);
 	}
 }
 

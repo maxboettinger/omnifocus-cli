@@ -128,6 +128,15 @@ export type BridgeResponse<T = unknown> = BridgeSuccess<T> | BridgeError;
 
 // ── Task mutation options ───────────────────────────────────────────────────
 
+/** Payload of the `task.complete` op. */
+export interface TaskCompleteResult {
+	id: string;
+	name: string;
+	/** "completed" or "uncompleted". */
+	action: string;
+	task: OFTask;
+}
+
 export interface TaskCreateOptions {
 	name: string;
 	note?: string;
@@ -486,7 +495,7 @@ export interface OmniFocusClient {
 	completeTask(
 		query: string,
 		opts?: { id?: string; incomplete?: boolean },
-	): Promise<BridgeResponse<{ id: string; name: string; action: string; task: OFTask }>>;
+	): Promise<BridgeResponse<TaskCompleteResult>>;
 	listTasks(opts: TaskListOptions): Promise<BridgeResponse<OFTask[]>>;
 	searchTasks(query: string, limit?: number): Promise<BridgeResponse<OFTask[]>>;
 	createSubtask(opts: SubtaskCreateOptions): Promise<

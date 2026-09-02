@@ -32,6 +32,97 @@ function parseDate(str) {
     return parsed;
 }
 
+// ── Smart date resolution ───────────────────────────────────────────────────
+//
+// Exact ISO forms (YYYY-MM-DD, YYYY-MM-DDTHH:mm) are parsed locally by
+// parseDate so scripts keep byte-identical behavior. Anything else is handed
+// to OmniFocus's own date parser (the one behind the app's date fields) via
+// Omni Automation, so "tomorrow", "fri 5pm", "2d", "10.9." all work. When
+// that parser yields midnight and the input carried no explicit time, the
+// app's default time for the field (Preferences → Dates & Times) is applied,
+// matching what typing the same text into OmniFocus would do.
+
+var ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/;
+var EXPLICIT_TIME_RE = /\d{1,2}:\d{2}|\b\d{1,2}\s*(am|pm)\b|\bnoon\b|\bmidnight\b|\bmidday\b/i;
+var DEFAULT_TIME_KEYS = { due: "DefaultDueTime", defer: "DefaultStartTime", planned: "DefaultPlannedTime" };
+
+function pad2(n) { return (n < 10 ? "0" : "") + n; }
+
+/** Local wall-clock ISO string (no zone) — what the user sees in OmniFocus. */
+function formatLocalIso(date) {
+    return date.getFullYear() + "-" + pad2(date.getMonth() + 1) + "-" + pad2(date.getDate()) +
+        "T" + pad2(date.getHours()) + ":" + pad2(date.getMinutes());
+}
+
+/** Ask OmniFocus to parse `input`; returns { date: Date|null, defaults: {due, defer, planned} }. */
+function omniParseDate(of, input) {
+    var result = runOmniAutomation(of, { input: input }, [
+        "var out = { date: null, defaults: {} };",
+        "var f = Formatter.Date.withStyle(Formatter.Date.Style.Short, Formatter.Date.Style.Short);",
+        "var d = f.dateFromString(payload.input);",
+        "if (d) out.date = d.toISOString();",
+        "try {",
+        "  out.defaults.due = settings.objectForKey('DefaultDueTime');",
+        "  out.defaults.defer = settings.objectForKey('DefaultStartTime');",
+        "  out.defaults.planned = settings.objectForKey('DefaultPlannedTime');",
+        "} catch(e) {}",
+        "return { ok: true, data: out };"
+    ].join("\n"));
+    if (!result.ok) throw new Error("Could not parse date \"" + input + "\": " + result.error);
+    var data = result.data || {};
+    var date = null;
+    if (data.date) {
+        date = new Date(data.date);
+        if (isNaN(date.getTime())) date = null;
+    }
+    return { date: date, defaults: data.defaults || {} };
+}
+
+/** Apply an "HH:mm[:ss]" preference value to a Date's local time-of-day. */
+function applyDefaultTime(date, pref) {
+    if (typeof pref !== "string") return date;
+    var m = /^(\d{1,2}):(\d{2})/.exec(pref);
+    if (!m) return date;
+    var d = new Date(date.getTime());
+    d.setHours(Number(m[1]), Number(m[2]), 0, 0);
+    return d;
+}
+
+/**
+ * Turn user input into a Date for the given field ("due" | "defer" | "planned").
+ * Throws with a user-facing message when the input cannot be understood.
+ */
+function resolveDate(of, input, field) {
+    if (!input) throw new Error("Date string required");
+    var str = String(input).trim();
+    if (ISO_DATE_RE.test(str)) return parseDate(str);
+    var parsed = omniParseDate(of, str);
+    if (!parsed.date) {
+        throw new Error("Could not understand date \"" + str + "\". Try e.g. 2026-09-10, 2026-09-10T14:30, tomorrow, fri 5pm, 2d, next week.");
+    }
+    var date = parsed.date;
+    var isMidnight = date.getHours() === 0 && date.getMinutes() === 0;
+    if (isMidnight && !EXPLICIT_TIME_RE.test(str)) {
+        date = applyDefaultTime(date, parsed.defaults[field]);
+    }
+    return date;
+}
+
+/**
+ * Set a date property and verify OmniFocus actually stored it. A silent
+ * refusal (e.g. an unsupported property, a read-only task) must surface as
+ * an error rather than a success message.
+ */
+function setDateProp(task, prop, label, date) {
+    task[prop] = date;
+    var stored = null;
+    try { stored = task[prop](); } catch(e) {}
+    if (!stored || !(stored instanceof Date) || Math.abs(stored.getTime() - date.getTime()) > 59999) {
+        throw new Error("OmniFocus did not store the " + label + " " + formatLocalIso(date) +
+            " (task still reports " + (stored instanceof Date ? formatLocalIso(stored) : "none") + ")");
+    }
+}
+
 function normalizeRepeatMethod(method) {
     if (!method) return "due date";
     var m = method.toLowerCase().replace(/[-_]/g, " ").trim();
@@ -219,11 +310,11 @@ function formatProjectCompact(project) {
 function applyTaskProps(of, doc, task, p) {
     var changes = [];
     if (p.due === "clear") { task.dueDate = null; changes.push("due date cleared"); }
-    else if (p.due) { task.dueDate = parseDate(p.due); changes.push("due: " + p.due); }
+    else if (p.due) { var dueAt = resolveDate(of, p.due, "due"); setDateProp(task, "dueDate", "due date", dueAt); changes.push("due: " + p.due + " → " + formatLocalIso(dueAt)); }
     if (p.defer === "clear") { task.deferDate = null; changes.push("defer date cleared"); }
-    else if (p.defer) { task.deferDate = parseDate(p.defer); changes.push("defer: " + p.defer); }
+    else if (p.defer) { var deferAt = resolveDate(of, p.defer, "defer"); setDateProp(task, "deferDate", "defer date", deferAt); changes.push("defer: " + p.defer + " → " + formatLocalIso(deferAt)); }
     if (p.planned === "clear") { try { task.plannedDate = null; changes.push("planned date cleared"); } catch(e) { changes.push("planned clear failed: " + e.message); } }
-    else if (p.planned) { try { task.plannedDate = parseDate(p.planned); changes.push("planned: " + p.planned); } catch(e) { changes.push("planned set failed: " + e.message); } }
+    else if (p.planned) { var plannedAt = resolveDate(of, p.planned, "planned"); setDateProp(task, "plannedDate", "planned date", plannedAt); changes.push("planned: " + p.planned + " → " + formatLocalIso(plannedAt)); }
     if (p.flag) { task.flagged = true; changes.push("flagged"); }
     if (p.unflag) { task.flagged = false; changes.push("unflagged"); }
     if (p.estimate === "clear") { task.estimatedMinutes = null; changes.push("estimate cleared"); }

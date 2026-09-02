@@ -38,7 +38,11 @@ argument, parser and output helper exists exactly once and is reused.
    - `task subtask` → `task add --parent <ref> | --parent-id <id>`.
    - `inbox add` → the same `registerAddCommand` mounted under `inbox`
      (bridge: `task.create` without a project already creates an `InboxTask`,
-     identical to `inbox.add`).
+     identical to `inbox.add`). Deviation recorded during implementation:
+     `inbox add --project X` now files into X like `task add`, instead of the
+     old `inbox.add` behaviour of leaving the item in the inbox with
+     `assignedContainer` set; staging is `inbox add` then
+     `inbox process --project`.
    - `bulk create` → `bulk add` (naming consistency with every other noun).
    - `move`, `tag`, `complete`, `rename` stay as verbs: they are thin verbs
      over `update`/dedicated ops with their own ergonomics (positional date,
@@ -90,23 +94,31 @@ src/commands/
   forecast.ts review.ts stats.ts collect.ts completion.ts
 ```
 
-### `mountNoun` (src/commands/noun.ts)
+### `defineNoun` (src/commands/noun.ts)
 
 ```ts
+export type Register = (parent: Command, client: OmniFocusClient) => void;
+
 export interface NounSpec {
   name: string;          // "task"
   alias?: string;        // "t" — omitted for nested nouns (task notification)
   description: string;   // "Manage tasks"
   verbs: readonly Register[];
 }
-export function mountNoun(program: Command, client: OmniFocusClient, spec: NounSpec): Command
+export function defineNoun(spec: NounSpec): Register
 ```
 
-Creates `program.command(spec.name).alias(spec.alias).description(...)` and
-calls every verb's register function with the noun command as parent. Each
-noun `index.ts` exports its `NounSpec` and nothing else; `program.ts` mounts
-the six specs from a single array. `task/notification/index.ts` uses the
-same `mountNoun` with no alias (nested nouns are unaliased).
+Curried, not eagerly-mounting: `defineNoun(spec)` returns a `Register`
+function rather than a `Command`. Calling that `Register` with `(parent,
+client)` creates `parent.command(spec.name).description(...)`, applies
+`spec.alias` via `cmd.alias()` if present, and calls every verb's register
+function with that new command as parent. Each noun `index.ts` calls
+`defineNoun({...})` directly and exports the result as its
+`registerXxxCommands` — e.g. `export const registerTaskCommands =
+defineNoun({ name: "task", alias: "t", ... })` — so it's a drop-in for the
+same `register*Commands(parent, client)` call sites every other verb group
+used before the refactor. `task/notification/index.ts` uses the same
+`defineNoun()` with no alias (nested nouns are unaliased).
 
 ### `runAction` (existing, now universal)
 
@@ -126,12 +138,16 @@ Each group is `(cmd: Command) => Command` (so it chains) with a paired reader
 |-------|----------|-----------|
 | `taskDateOptions(cmd, { fields, clearable })` | any subset of `--due --defer --planned`; edit mode appends "or 'clear'" to help | task add (all three), task update, inbox process (all three, clearable), move (`defer`, `planned` only, clearable) |
 | `taskCreateOptions` | `--note --tag --flag --estimate --project --sequential --repeat --repeat-method` + `--parent/--parent-id` | task add (both mounts) |
-| `taskEditOptions` | `--name --note --note-append --tag --remove-tag --flag/--unflag --estimate(clear) --project --sequential/--parallel --repeat(clear) --repeat-method --complete/--incomplete` | task update, inbox process |
+| `taskEditOptions` | `--name --note --note-append --tag --remove-tag --flag/--unflag --estimate(clear) --project --sequential/--parallel --repeat(clear) --repeat-method` | task update, inbox process |
 | `taskRefArgument` | `[ref]` + `--id` (variadic variant for complete) | every task verb incl. notification sub-verbs |
 | `projectRefArgument` | `<project>` + `--id` | project show/update/rename/delete |
 | `limitOption` | `--limit <n>` with default, paired with `outputLimitNotice` | task list/search, inbox list, tag tasks, project/tag/folder list |
 | `listQueryOptions` | `--search --count --limit --active-only` | project/tag/folder list |
 | `confirmOption` + `requireConfirm(opts, action)` | `--confirm` | task/project/tag delete, notification clear, inbox process(-many) |
+
+`--complete`/`--incomplete` stay verb-local (task update has both, inbox
+process only `--complete`) rather than joining `taskEditOptions` — the two
+verbs don't need identical flag sets there, so each declares its own.
 
 Parsers shared in `core/parsers.ts`: `collectRepeatable` (was three private
 `collect()`s), `parseIntOrClear` (was private `parseNumberOrString`).

@@ -214,8 +214,9 @@ of folder list --search Work --count
 
 ```bash
 of inbox list --limit 10
-of inbox add "Quick thought"     # same command as task add; lands in the inbox without --project
-of inbox process <task-id> --project "Errands" --tag errand
+of inbox add "Quick thought"                      # same command as task add; lands in the inbox
+of inbox add "Call bank" --project Finance        # --project files it into the project, like task add
+of inbox process <ref> --project "Errands" --tag errand
 echo '[{"id":"id1","project":"Errands"},{"id":"id2","complete":true}]' | of inbox process-many
 ```
 
@@ -281,7 +282,7 @@ of collect --days 14          # recently completed tasks
 | `folder add` | Create a new folder |
 | `folder list` | List folders |
 | `inbox list` | List inbox tasks |
-| `inbox add` | Add a task to the inbox |
+| `inbox add` | Create a task in the inbox, same command as `task add`; `--project` files it |
 | `inbox process` | Process an inbox task (move, tag, complete, delete) |
 | `inbox process-many` | Process inbox tasks from JSON (stdin) |
 | `bulk add` | Create tasks from JSON (stdin) |

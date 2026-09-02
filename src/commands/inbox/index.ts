@@ -1,15 +1,17 @@
-import type { Command } from "commander";
-import type { OmniFocusClient } from "../../core/types.js";
+import { defineNoun } from "../noun.js";
 import { registerAddCommand } from "./add.js";
 import { registerListCommand } from "./list.js";
 import { registerProcessManyCommand } from "./process-many.js";
 import { registerProcessCommand } from "./process.js";
 
-export function registerInboxCommands(program: Command, client: OmniFocusClient): void {
-	const cmd = program.command("inbox").description("Manage inbox");
-
-	registerListCommand(cmd, client);
-	registerAddCommand(cmd, client);
-	registerProcessCommand(cmd, client);
-	registerProcessManyCommand(cmd, client);
-}
+export const registerInboxCommands = defineNoun({
+	name: "inbox",
+	alias: "i",
+	description: "Manage the inbox",
+	verbs: [
+		registerListCommand,
+		registerAddCommand,
+		registerProcessCommand,
+		registerProcessManyCommand,
+	],
+});

@@ -87,6 +87,32 @@ describe("program assembly", () => {
 		const program = buildProgram(createMockClient());
 		expect(program.version()).toBe(pkg.version);
 	});
+
+	test("every noun has its one-letter alias", () => {
+		const program = buildProgram(createMockClient());
+		const aliases = Object.fromEntries(program.commands.map((c) => [c.name(), c.aliases()]));
+		expect(aliases).toMatchObject({
+			task: ["t"],
+			project: ["p"],
+			tag: ["g"],
+			folder: ["f"],
+			inbox: ["i"],
+			bulk: ["b"],
+		});
+	});
+
+	test("`of t list` dispatches like `of task list`", async () => {
+		const client = createMockClient();
+		const program = buildProgram(client).exitOverride();
+		const origLog = console.log;
+		console.log = () => {};
+		try {
+			await program.parseAsync(["t", "list", "--json"], { from: "user" });
+		} finally {
+			console.log = origLog;
+		}
+		expect(client.listTasks).toHaveBeenCalledTimes(1);
+	});
 });
 
 describe("progress gating by output format", () => {

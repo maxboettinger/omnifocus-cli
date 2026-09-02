@@ -1,5 +1,4 @@
-import type { Command } from "commander";
-import type { OmniFocusClient } from "../../core/types.js";
+import { defineNoun } from "../noun.js";
 import { registerAddCommand } from "./add.js";
 import { registerCompleteCommand } from "./complete.js";
 import { registerDeleteCommand } from "./delete.js";
@@ -12,18 +11,21 @@ import { registerSubtaskCommand } from "./subtask.js";
 import { registerTagCommand } from "./tag.js";
 import { registerUpdateCommand } from "./update.js";
 
-export function registerTaskCommands(program: Command, client: OmniFocusClient): void {
-	const cmd = program.command("task").description("Manage tasks");
-
-	registerAddCommand(cmd, client);
-	registerListCommand(cmd, client);
-	registerUpdateCommand(cmd, client);
-	registerMoveCommand(cmd, client);
-	registerCompleteCommand(cmd, client);
-	registerDeleteCommand(cmd, client);
-	registerSearchCommand(cmd, client);
-	registerShowCommand(cmd, client);
-	registerNotificationCommands(cmd, client);
-	registerSubtaskCommand(cmd, client);
-	registerTagCommand(cmd, client);
-}
+export const registerTaskCommands = defineNoun({
+	name: "task",
+	alias: "t",
+	description: "Manage tasks",
+	verbs: [
+		registerAddCommand,
+		registerListCommand,
+		registerShowCommand,
+		registerSearchCommand,
+		registerUpdateCommand,
+		registerMoveCommand,
+		registerCompleteCommand,
+		registerTagCommand,
+		registerDeleteCommand,
+		registerSubtaskCommand,
+		registerNotificationCommands,
+	],
+});

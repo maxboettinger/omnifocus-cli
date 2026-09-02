@@ -95,7 +95,7 @@ src/commands/
 ```ts
 export interface NounSpec {
   name: string;          // "task"
-  alias: string;         // "t"
+  alias?: string;        // "t" — omitted for nested nouns (task notification)
   description: string;   // "Manage tasks"
   verbs: readonly Register[];
 }
@@ -124,7 +124,7 @@ Each group is `(cmd: Command) => Command` (so it chains) with a paired reader
 
 | Group | Declares | Consumers |
 |-------|----------|-----------|
-| `taskDateOptions` | `--due --defer --planned` (create: plain; edit: "or 'clear'") | task add, task update, inbox process, move (defer/planned only) |
+| `taskDateOptions(cmd, { fields, clearable })` | any subset of `--due --defer --planned`; edit mode appends "or 'clear'" to help | task add (all three), task update, inbox process (all three, clearable), move (`defer`, `planned` only, clearable) |
 | `taskCreateOptions` | `--note --tag --flag --estimate --project --sequential --repeat --repeat-method` + `--parent/--parent-id` | task add (both mounts) |
 | `taskEditOptions` | `--name --note --note-append --tag --remove-tag --flag/--unflag --estimate(clear) --project --sequential/--parallel --repeat(clear) --repeat-method --complete/--incomplete` | task update, inbox process |
 | `taskRefArgument` | `[ref]` + `--id` (variadic variant for complete) | every task verb incl. notification sub-verbs |

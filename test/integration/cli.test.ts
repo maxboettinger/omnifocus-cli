@@ -386,6 +386,71 @@ describe("project commands", () => {
 		);
 		expect(c.deleteProject).toHaveBeenCalledTimes(1);
 	});
+
+	test("project show passes the query and --id to getProject", async () => {
+		const { client } = await runCommand(registerProjectCommands, [
+			"project",
+			"show",
+			"Home",
+			"--id",
+			"p1",
+			"--json",
+		]);
+		expect(client.getProject).toHaveBeenCalledTimes(1);
+		const call = (client.getProject as ReturnType<typeof mock>).mock.calls[0] as [
+			string,
+			Record<string, unknown>,
+		];
+		expect(call[0]).toBe("Home");
+		expect(call[1]).toMatchObject({ id: "p1" });
+	});
+
+	test("project update maps flags onto updateProject", async () => {
+		const { client } = await runCommand(registerProjectCommands, [
+			"project",
+			"update",
+			"--id",
+			"p1",
+			"--name",
+			"New",
+			"--status",
+			"onhold",
+			"--flag",
+			"--json",
+		]);
+		expect(client.updateProject).toHaveBeenCalledTimes(1);
+		const call = (client.updateProject as ReturnType<typeof mock>).mock.calls[0] as [
+			Record<string, unknown>,
+		];
+		expect(call[0]).toMatchObject({
+			query: undefined,
+			id: "p1",
+			name: "New",
+			status: "onhold",
+			flag: true,
+		});
+	});
+
+	test("project rename passes both names and --id to renameProject", async () => {
+		const { client } = await runCommand(registerProjectCommands, [
+			"project",
+			"rename",
+			"Home",
+			"Kitchen",
+			"--id",
+			"p1",
+			"--json",
+		]);
+		expect(client.renameProject).toHaveBeenCalledTimes(1);
+		const call = (client.renameProject as ReturnType<typeof mock>).mock.calls[0] as [
+			string,
+			string,
+			Record<string, unknown>,
+		];
+		expect(call[0]).toBe("Home");
+		expect(call[1]).toBe("Kitchen");
+		expect(call[2]).toMatchObject({ id: "p1" });
+	});
 });
 
 // ── Tag commands ────────────────────────────────────────────────────────────

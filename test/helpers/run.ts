@@ -1,10 +1,13 @@
 /**
- * Run a command group against a mock client and capture what it printed.
+ * The single CLI test harness: run a command group against a mock client
+ * and capture what it printed. Builds a real Commander program with the
+ * root `--json` option (mirroring src/program.ts) and exitOverride(),
+ * captures console.log/console.error into arrays, and stubs process.exit
+ * so `exitCode` can be asserted instead of the process actually exiting.
+ * `runCommandWithStdin` layers stdin piping on top for stdin-driven verbs
+ * (bulk create/update/complete, inbox process-many).
  *
- * Mirrors the harness in test/integration/cli.test.ts: a real Commander
- * program with exitOverride(), console.log/console.error captured into
- * arrays, argv parsed "from user". `captureExit` additionally stubs
- * process.exit so commands that exit non-zero can be asserted on.
+ * Integration test files import this rather than building their own copy.
  */
 
 import { Readable } from "node:stream";

@@ -43,10 +43,31 @@ export function withStreamTTY<T>(
 ): T {
 	const original = Object.getOwnPropertyDescriptor(stream, "isTTY");
 	Object.defineProperty(stream, "isTTY", { value: isTTY, configurable: true });
-	try {
-		return fn();
-	} finally {
+	const restore = () => {
 		if (original) Object.defineProperty(stream, "isTTY", original);
 		else Reflect.deleteProperty(stream, "isTTY");
+	};
+	let result: T;
+	try {
+		result = fn();
+	} catch (error) {
+		restore();
+		throw error;
+	}
+	if (result instanceof Promise) {
+		return result.finally(restore) as T;
+	}
+	restore();
+	return result;
+}
+
+/** Replace `process.stdin` (a Readable, or `{ isTTY: true }`) for the duration of `fn`. */
+export async function withStdin<T>(value: unknown, fn: () => T | Promise<T>): Promise<T> {
+	const original = process.stdin;
+	Object.defineProperty(process, "stdin", { value, configurable: true });
+	try {
+		return await fn();
+	} finally {
+		Object.defineProperty(process, "stdin", { value: original, configurable: true });
 	}
 }

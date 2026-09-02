@@ -9,6 +9,7 @@ import { CLIError } from "../core/errors.js";
 
 interface CommandNode {
 	name: string;
+	aliases: string[];
 	description: string;
 	children: CommandNode[];
 }
@@ -18,11 +19,29 @@ function toTree(cmd: Command, depth = 0): CommandNode[] {
 	for (const sub of cmd.commands) {
 		nodes.push({
 			name: sub.name(),
+			aliases: sub.aliases(),
 			description: sub.description(),
 			children: depth < 2 ? toTree(sub, depth + 1) : [],
 		});
 	}
 	return nodes;
+}
+
+/** Every spelling of a command: its name plus aliases. */
+function spellings(node: CommandNode): string[] {
+	return [node.name, ...node.aliases];
+}
+
+/** `case` pattern matching any spelling: `task|t`. */
+function casePattern(node: CommandNode): string {
+	return spellings(node).join("|");
+}
+
+/** `[[ ... ]]` clause matching any spelling of `node` at shell word `word`. */
+function wordMatches(word: string, node: CommandNode): string {
+	return `( ${spellings(node)
+		.map((s) => `${word} == "${s}"`)
+		.join(" || ")} )`;
 }
 
 /** Sanitize a command name for use in a shell variable name. */
@@ -38,7 +57,7 @@ function escapeDescription(desc: string): string {
 // ── bash ────────────────────────────────────────────────────────────────────
 
 function generateBash(tree: CommandNode[]): string {
-	const nouns = tree.map((n) => n.name).join(" ");
+	const nouns = tree.flatMap(spellings).join(" ");
 	const verbVars: string[] = [];
 	const verbCases: string[] = [];
 	const nestedIfs: string[] = [];
@@ -47,13 +66,15 @@ function generateBash(tree: CommandNode[]): string {
 		if (noun.children.length === 0) continue;
 		const v = varName(noun.name, "verbs");
 		verbVars.push(`\tlocal ${v}="${noun.children.map((c) => c.name).join(" ")}"`);
-		verbCases.push(`\t\t\t\t${noun.name}) COMPREPLY=( $(compgen -W "\${${v}}" -- "\${cur}") ) ;;`);
+		verbCases.push(
+			`\t\t\t\t${casePattern(noun)}) COMPREPLY=( $(compgen -W "\${${v}}" -- "\${cur}") ) ;;`,
+		);
 		for (const verb of noun.children) {
 			if (verb.children.length === 0) continue;
 			const nv = varName(noun.name, verb.name, "verbs");
 			verbVars.push(`\tlocal ${nv}="${verb.children.map((c) => c.name).join(" ")}"`);
 			nestedIfs.push(
-				`\t\t\tif [[ "\${words[1]}" == "${noun.name}" && "\${words[2]}" == "${verb.name}" ]]; then\n\t\t\t\tCOMPREPLY=( $(compgen -W "\${${nv}}" -- "\${cur}") )\n\t\t\tfi`,
+				`\t\t\tif [[ ${wordMatches('"${words[1]}"', noun)} && ${wordMatches('"${words[2]}"', verb)} ]]; then\n\t\t\t\tCOMPREPLY=( $(compgen -W "\${${nv}}" -- "\${cur}") )\n\t\t\tfi`,
 			);
 		}
 	}
@@ -86,7 +107,9 @@ function generateBash(tree: CommandNode[]): string {
 // ── zsh ─────────────────────────────────────────────────────────────────────
 
 function generateZsh(tree: CommandNode[]): string {
-	const nounItems = tree.map((n) => `\t\t'${n.name}:${escapeDescription(n.description)}'`);
+	const nounItems = tree.flatMap((n) =>
+		spellings(n).map((s) => `\t\t'${s}:${escapeDescription(n.description)}'`),
+	);
 	const cmdArrays: string[] = [];
 	const verbCases: string[] = [];
 	const nestedIfs: string[] = [];
@@ -99,7 +122,7 @@ function generateZsh(tree: CommandNode[]): string {
 				.map((c) => `\t\t'${c.name}:${escapeDescription(c.description)}'`)
 				.join("\n")}\n\t)`,
 		);
-		verbCases.push(`\t\t\t\t${noun.name}) _describe 'subcommand' ${v} ;;`);
+		verbCases.push(`\t\t\t\t${casePattern(noun)}) _describe 'subcommand' ${v} ;;`);
 		for (const verb of noun.children) {
 			if (verb.children.length === 0) continue;
 			const nv = varName(noun.name, verb.name, "cmds");
@@ -109,7 +132,7 @@ function generateZsh(tree: CommandNode[]): string {
 					.join("\n")}\n\t)`,
 			);
 			nestedIfs.push(
-				`\t\t\tif [[ "\$words[2]" == "${noun.name}" && "\$words[3]" == "${verb.name}" ]]; then\n\t\t\t\t_describe 'subcommand' ${nv}\n\t\t\tfi`,
+				`\t\t\tif [[ ${wordMatches('"$words[2]"', noun)} && ${wordMatches('"$words[3]"', verb)} ]]; then\n\t\t\t\t_describe 'subcommand' ${nv}\n\t\t\tfi`,
 			);
 		}
 	}
@@ -167,7 +190,7 @@ function generateFish(tree: CommandNode[]): string {
 				`# Detect exact nested context: of ${noun.name} ${verb.name} <verb>`,
 				`function ${fn}`,
 				"    set -l cmd (commandline -opc)",
-				`    test (count $cmd) -ge 3; and test "$cmd[2]" = "${noun.name}"; and test "$cmd[3]" = "${verb.name}"`,
+				`    test (count $cmd) -ge 3; and contains -- "$cmd[2]" ${spellings(noun).join(" ")}; and contains -- "$cmd[3]" ${spellings(verb).join(" ")}`,
 				"end",
 				"",
 			);
@@ -182,9 +205,11 @@ function generateFish(tree: CommandNode[]): string {
 	lines.push(...nestedFunctions);
 	lines.push("# Top-level commands");
 	for (const noun of tree) {
-		lines.push(
-			`complete -c of -n __fish_use_subcommand -a ${noun.name} -d '${escapeDescription(noun.description)}'`,
-		);
+		for (const spelling of spellings(noun)) {
+			lines.push(
+				`complete -c of -n __fish_use_subcommand -a ${spelling} -d '${escapeDescription(noun.description)}'`,
+			);
+		}
 	}
 
 	for (const noun of tree) {
@@ -192,7 +217,7 @@ function generateFish(tree: CommandNode[]): string {
 		lines.push("", `# ${noun.name} subcommands`);
 		for (const verb of noun.children) {
 			lines.push(
-				`complete -c of -n '__fish_seen_subcommand_from ${noun.name}' -a ${verb.name} -d '${escapeDescription(verb.description)}'`,
+				`complete -c of -n '__fish_seen_subcommand_from ${spellings(noun).join(" ")}' -a ${verb.name} -d '${escapeDescription(verb.description)}'`,
 			);
 		}
 	}

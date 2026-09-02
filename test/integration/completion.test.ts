@@ -54,10 +54,29 @@ describe("completion script generation", () => {
 
 	test("fish task subcommands include delete (regression)", () => {
 		const script = generateCompletionScript(program, "fish");
-		expect(script).toContain("'__fish_seen_subcommand_from task' -a delete");
+		expect(script).toContain("'__fish_seen_subcommand_from task t' -a delete");
 	});
 
 	test("unknown shell throws", () => {
 		expect(() => generateCompletionScript(program, "powershell")).toThrow();
+	});
+
+	test("bash offers noun aliases and matches them in verb cases", () => {
+		const script = generateCompletionScript(program, "bash");
+		const nouns = /nouns="([^"]*)"/.exec(script)?.[1]?.split(" ") ?? [];
+		for (const alias of ["t", "p", "g", "f", "i", "b"]) expect(nouns).toContain(alias);
+		expect(script).toContain("task|t) COMPREPLY=");
+	});
+
+	test("zsh describes aliases and matches them in verb cases", () => {
+		const script = generateCompletionScript(program, "zsh");
+		expect(script).toContain("'t:Manage tasks'");
+		expect(script).toContain("task|t) _describe");
+	});
+
+	test("fish offers aliases at top level and in subcommand guards", () => {
+		const script = generateCompletionScript(program, "fish");
+		expect(script).toContain("-n __fish_use_subcommand -a t -d 'Manage tasks'");
+		expect(script).toContain("'__fish_seen_subcommand_from task t' -a list");
 	});
 });

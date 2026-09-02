@@ -1,20 +1,19 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../core/client.js";
-import { BridgeError } from "../core/errors.js";
-import { outputError, outputJson, resolveFormat } from "../core/output.js";
+import { outputJson } from "../core/output.js";
 import { parseIntOption } from "../core/parsers.js";
 import type { OmniFocusClient } from "../core/types.js";
 import { bold, dim, green } from "../core/ui/colors.js";
+import { runAction } from "./action.js";
 
 export function registerReviewCommand(program: Command, client: OmniFocusClient): void {
 	program
 		.command("review")
 		.description("Weekly review report")
 		.option("--days <n>", "Number of days to review", parseIntOption, 7)
-		.option("--json", "JSON output")
-		.action(async (opts: Record<string, unknown>, cmd: Command) => {
-			try {
-				const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);
+		.action(
+			runAction(async (ctx) => {
+				const { opts, format } = ctx;
 
 				const days = opts.days as number;
 
@@ -81,12 +80,6 @@ export function registerReviewCommand(program: Command, client: OmniFocusClient)
 						console.log(dim(`    ${progressBar}`));
 					}
 				}
-			} catch (error) {
-				if (error instanceof BridgeError) {
-					outputError(error);
-					process.exit(1);
-				}
-				throw error;
-			}
-		});
+			}),
+		);
 }

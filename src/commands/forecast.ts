@@ -1,17 +1,10 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../core/client.js";
-import { BridgeError } from "../core/errors.js";
-import {
-	formatTaskLine,
-	outputError,
-	outputJson,
-	resolveFormat,
-	shortIdColumnWidth,
-	taskShortIds,
-} from "../core/output.js";
+import { formatTaskLine, outputJson, shortIdColumnWidth, taskShortIds } from "../core/output.js";
 import { parseIntOption } from "../core/parsers.js";
 import type { OmniFocusClient } from "../core/types.js";
 import { bold, cyan, dim, green, red, yellow } from "../core/ui/colors.js";
+import { runAction } from "./action.js";
 
 export function registerForecastCommand(program: Command, client: OmniFocusClient): void {
 	program
@@ -20,10 +13,9 @@ export function registerForecastCommand(program: Command, client: OmniFocusClien
 		.option("--days <n>", "Number of days to include", parseIntOption, 3)
 		.option("--include-flagged", "Include flagged tasks")
 		.option("--include-available", "Include available tasks")
-		.option("--json", "JSON output")
-		.action(async (opts: Record<string, unknown>, cmd: Command) => {
-			try {
-				const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);
+		.action(
+			runAction(async (ctx) => {
+				const { opts, format } = ctx;
 
 				const days = opts.days as number;
 				const includeFlagged = opts.includeFlagged as boolean;
@@ -106,12 +98,6 @@ export function registerForecastCommand(program: Command, client: OmniFocusClien
 						`Tasks: ${counts.overdue} overdue, ${counts.dueToday} due today, ${counts.plannedToday} planned today`,
 					),
 				);
-			} catch (error) {
-				if (error instanceof BridgeError) {
-					outputError(error);
-					process.exit(1);
-				}
-				throw error;
-			}
-		});
+			}),
+		);
 }

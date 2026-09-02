@@ -11,6 +11,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Command } from "commander";
+import { registerBulkCommands } from "../../src/commands/bulk/index.js";
 import { registerCollectCommand } from "../../src/commands/collect.js";
 import { registerCompletionCommand } from "../../src/commands/completion.js";
 import { registerFolderCommands } from "../../src/commands/folder/index.js";
@@ -1226,5 +1227,31 @@ describe("short id display", () => {
 		]);
 		expect(stdout.join("\n")).toContain(`Updated task: ${MOCK_TASK.name}`);
 		expect(stdout.join("\n")).not.toContain(`Updated task: ${MOCK_TASK.id}`);
+	});
+});
+
+describe("bulk commands", () => {
+	test("bulk add validates names, then calls bulkCreate with the array", async () => {
+		const { client } = await runCommandWithStdin(
+			registerBulkCommands,
+			["bulk", "add", "--json"],
+			'[{"name":"A"},{"name":"B"}]',
+		);
+		expect(client.bulkCreate).toHaveBeenCalledWith([{ name: "A" }, { name: "B" }]);
+	});
+
+	test("bulk add rejects an item without a name before calling the client", async () => {
+		const { client, stderr, exitCode } = await runCommandWithStdin(
+			registerBulkCommands,
+			["bulk", "add", "--json"],
+			'[{"name":"A"},{}]',
+		);
+		expect(client.bulkCreate).not.toHaveBeenCalled();
+		expect(stderr.join("\n")).toContain("Task at index 1 is missing required field 'name'");
+		expect(exitCode).toBe(1);
+	});
+
+	test("bulk create no longer exists", async () => {
+		await expect(runCommand(registerBulkCommands, ["bulk", "create"])).rejects.toThrow();
 	});
 });

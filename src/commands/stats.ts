@@ -1,18 +1,17 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../core/client.js";
-import { BridgeError } from "../core/errors.js";
-import { outputError, outputJson, resolveFormat } from "../core/output.js";
+import { outputJson } from "../core/output.js";
 import type { OmniFocusClient } from "../core/types.js";
 import { bold, green, red, yellow } from "../core/ui/colors.js";
+import { runAction } from "./action.js";
 
 export function registerStatsCommand(program: Command, client: OmniFocusClient): void {
 	program
 		.command("stats")
 		.description("OmniFocus statistics overview")
-		.option("--json", "JSON output")
-		.action(async (opts: Record<string, unknown>, cmd: Command) => {
-			try {
-				const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);
+		.action(
+			runAction(async (ctx) => {
+				const { format } = ctx;
 
 				const response = await client.stats();
 				const data = unwrapBridgeResponse(response);
@@ -94,12 +93,6 @@ export function registerStatsCommand(program: Command, client: OmniFocusClient):
 				if (data.tasks.blocked > 0) {
 					console.log(`  ${yellow("🚫")} ${data.tasks.blocked} blocked tasks`);
 				}
-			} catch (error) {
-				if (error instanceof BridgeError) {
-					outputError(error);
-					process.exit(1);
-				}
-				throw error;
-			}
-		});
+			}),
+		);
 }

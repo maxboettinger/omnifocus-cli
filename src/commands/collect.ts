@@ -1,21 +1,20 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../core/client.js";
-import { BridgeError } from "../core/errors.js";
-import { outputError, outputJson, resolveFormat, shortIdColumnWidth } from "../core/output.js";
+import { outputJson, shortIdColumnWidth } from "../core/output.js";
 import { parseIntOption } from "../core/parsers.js";
 import { assignShortIds } from "../core/short-ids.js";
 import type { CollectedTask, OmniFocusClient } from "../core/types.js";
 import { dim } from "../core/ui/colors.js";
+import { runAction } from "./action.js";
 
 export function registerCollectCommand(program: Command, client: OmniFocusClient): void {
 	program
 		.command("collect")
 		.description("Collect recently completed tasks")
 		.option("--days <n>", "Number of days to look back (default: 7)", parseIntOption)
-		.option("--json", "JSON output")
-		.action(async (opts: Record<string, unknown>, cmd: Command) => {
-			try {
-				const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);
+		.action(
+			runAction(async (ctx) => {
+				const { opts, format } = ctx;
 				const response = await client.collectCompleted(opts.days as number | undefined);
 				const data = unwrapBridgeResponse(response);
 
@@ -25,14 +24,8 @@ export function registerCollectCommand(program: Command, client: OmniFocusClient
 				}
 
 				outputCollectedTasks(data);
-			} catch (error) {
-				if (error instanceof BridgeError) {
-					outputError(error);
-					process.exit(1);
-				}
-				throw error;
-			}
-		});
+			}),
+		);
 }
 
 function outputCollectedTasks(tasks: CollectedTask[]): void {

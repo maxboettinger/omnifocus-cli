@@ -2,6 +2,7 @@ import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../../core/client.js";
 import { BridgeError, ConfirmationRequiredError } from "../../../core/errors.js";
 import { outputError, outputJson, outputSuccess, resolveFormat } from "../../../core/output.js";
+import { resolveTaskRef } from "../../../core/short-ids.js";
 import type { OmniFocusClient } from "../../../core/types.js";
 
 export function registerClearCommand(parent: Command, client: OmniFocusClient): void {
@@ -22,7 +23,7 @@ export function registerClearCommand(parent: Command, client: OmniFocusClient): 
 				const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);
 				const response = await client.clearTaskNotifications({
 					query,
-					id: opts.id as string,
+					id: resolveTaskRef(query, opts.id as string | undefined).id,
 					confirm: opts.confirm as boolean,
 				});
 				const data = unwrapBridgeResponse(response);

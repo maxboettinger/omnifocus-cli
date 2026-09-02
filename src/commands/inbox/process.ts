@@ -9,6 +9,7 @@ import {
 	resolveFormat,
 } from "../../core/output.js";
 import { parseIntOption } from "../../core/parsers.js";
+import { resolveTaskRef } from "../../core/short-ids.js";
 import type { OmniFocusClient } from "../../core/types.js";
 
 export function registerProcessCommand(parent: Command, client: OmniFocusClient): void {
@@ -46,8 +47,9 @@ export function registerProcessCommand(parent: Command, client: OmniFocusClient)
 				}
 
 				const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);
+				// The positional accepts a short numeric alias or a raw OmniFocus id.
 				const response = await client.processInbox({
-					id,
+					id: resolveTaskRef(id).id ?? id,
 					name: opts.name as string,
 					note: opts.note as string,
 					noteAppend: opts.noteAppend as string,

@@ -3,6 +3,7 @@ import { unwrapBridgeResponse } from "../../../core/client.js";
 import { BridgeError } from "../../../core/errors.js";
 import { outputError, outputJson, outputSuccess, resolveFormat } from "../../../core/output.js";
 import { parseDurationOrClear, parseDurationToSeconds } from "../../../core/parsers.js";
+import { resolveTaskRef } from "../../../core/short-ids.js";
 import type { OmniFocusClient } from "../../../core/types.js";
 
 export function registerUpdateCommand(parent: Command, client: OmniFocusClient): void {
@@ -42,7 +43,7 @@ export function registerUpdateCommand(parent: Command, client: OmniFocusClient):
 				const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);
 				const response = await client.updateTaskNotification({
 					query,
-					id: opts.id as string,
+					id: resolveTaskRef(query, opts.id as string | undefined).id,
 					notificationId,
 					at,
 					offsetSeconds,

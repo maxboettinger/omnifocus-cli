@@ -8,6 +8,7 @@ import {
 	outputSuccess,
 	resolveFormat,
 } from "../../../core/output.js";
+import { resolveTaskRef } from "../../../core/short-ids.js";
 import type { OFTaskNotification, OmniFocusClient } from "../../../core/types.js";
 
 export function registerListCommand(parent: Command, client: OmniFocusClient): void {
@@ -22,7 +23,7 @@ export function registerListCommand(parent: Command, client: OmniFocusClient): v
 				const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);
 				const response = await client.listTaskNotifications({
 					query,
-					id: opts.id as string,
+					id: resolveTaskRef(query, opts.id as string | undefined).id,
 				});
 				const data = unwrapBridgeResponse(response);
 

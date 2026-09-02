@@ -2,6 +2,7 @@ import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
 import { BridgeError, ConfirmationRequiredError } from "../../core/errors.js";
 import { bold, outputError, outputJson, outputSuccess, resolveFormat } from "../../core/output.js";
+import { peekShortId, resolveTaskRef } from "../../core/short-ids.js";
 import type { OmniFocusClient } from "../../core/types.js";
 
 export function registerDeleteCommand(parent: Command, client: OmniFocusClient): void {
@@ -22,8 +23,9 @@ export function registerDeleteCommand(parent: Command, client: OmniFocusClient):
 
 				const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);
 
+				const ref = resolveTaskRef(query, opts.id as string | undefined);
 				const deleteOptions = {
-					id: opts.id as string,
+					id: ref.id,
 					confirm: opts.confirm as boolean,
 				};
 
@@ -37,7 +39,8 @@ export function registerDeleteCommand(parent: Command, client: OmniFocusClient):
 				}
 
 				const action = data.action.charAt(0).toUpperCase() + data.action.slice(1);
-				outputSuccess(`${action}: ${bold(data.name)}`);
+				const shortId = data.id != null ? peekShortId(data.id) : undefined;
+				outputSuccess(`${action}: ${bold(data.name)}${shortId != null ? ` (${shortId})` : ""}`);
 			} catch (error) {
 				if (error instanceof BridgeError) {
 					outputError(error);

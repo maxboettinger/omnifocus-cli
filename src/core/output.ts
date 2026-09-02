@@ -7,6 +7,7 @@
  */
 
 import { BridgeError, type CLIError } from "./errors.js";
+import { assignShortIds } from "./short-ids.js";
 import type { OFFolder, OFProject, OFProjectCompact, OFTask, OutputFormat } from "./types.js";
 
 // ── ANSI helpers ────────────────────────────────────────────────────────────
@@ -100,7 +101,15 @@ export function outputError(error: string | CLIError): void {
 		return;
 	}
 
-	const text = error instanceof BridgeError ? error.format() : message;
+	let text = message;
+	if (error instanceof BridgeError) {
+		// Candidates are live tasks the user may retry by number, so mint
+		// short aliases for them just as a listing would.
+		const candidateIds = (candidates ?? [])
+			.map((c) => (typeof c === "string" ? undefined : c.id))
+			.filter((id): id is string => id != null);
+		text = error.format(candidateIds.length > 0 ? assignShortIds(candidateIds) : undefined);
+	}
 	console.error(`${paint(RED, "✗", process.stderr)} ${text}`);
 }
 
@@ -127,8 +136,21 @@ export function outputLimitNotice(count: number, limit: number): void {
 
 // ── Task formatting ─────────────────────────────────────────────────────────
 
-export function formatTaskLine(task: OFTask): string {
+/** Optional short-ID decoration for human-mode task rendering. */
+export interface ShortIdDisplay {
+	shortId?: number;
+	/** Pad width so ids in one listing right-align; defaults to the id's own width. */
+	shortIdWidth?: number;
+}
+
+export function formatTaskLine(task: OFTask, display: ShortIdDisplay = {}): string {
 	const parts: string[] = [];
+
+	// Short numeric alias, right-aligned across the listing
+	if (display.shortId != null) {
+		const width = display.shortIdWidth ?? String(display.shortId).length;
+		parts.push(`${dim(String(display.shortId).padStart(width))} `);
+	}
 
 	// Flagged indicator
 	if (task.flagged) parts.push("⚑");
@@ -161,11 +183,15 @@ export function formatTaskLine(task: OFTask): string {
 	return parts.join(" ");
 }
 
-export function formatTaskDetail(task: OFTask): string {
+export function formatTaskDetail(task: OFTask, display: ShortIdDisplay = {}): string {
 	const lines: string[] = [];
 
 	lines.push(bold(task.name));
-	lines.push(`${dim("ID:")} ${task.id}`);
+	if (display.shortId != null) {
+		lines.push(`${dim("ID:")} ${display.shortId} ${dim(`(${task.id})`)}`);
+	} else {
+		lines.push(`${dim("ID:")} ${task.id}`);
+	}
 	lines.push(`${dim("Project:")} ${task.project}`);
 
 	if (task.note) lines.push(`${dim("Note:")} ${task.note}`);
@@ -215,10 +241,26 @@ export function outputTaskList(tasks: OFTask[], format: OutputFormat): void {
 		return;
 	}
 
+	const aliases = taskShortIds(tasks);
+	const width = shortIdColumnWidth(aliases);
 	for (const task of tasks) {
-		console.log(formatTaskLine(task));
+		console.log(formatTaskLine(task, { shortId: aliases.get(task.id), shortIdWidth: width }));
 	}
 	console.log(dim(`\n${tasks.length} task${tasks.length === 1 ? "" : "s"}`));
+}
+
+/** Assign short numeric aliases for a set of tasks (human-mode rendering only). */
+export function taskShortIds(tasks: readonly Pick<OFTask, "id">[]): Map<string, number> {
+	return assignShortIds(tasks.map((t) => t.id));
+}
+
+/** Column width that right-aligns every alias in one listing. */
+export function shortIdColumnWidth(aliases: ReadonlyMap<string, number>): number {
+	let width = 0;
+	for (const alias of aliases.values()) {
+		width = Math.max(width, String(alias).length);
+	}
+	return width;
 }
 
 export function outputTaskDetail(task: OFTask, format: OutputFormat): void {
@@ -226,7 +268,8 @@ export function outputTaskDetail(task: OFTask, format: OutputFormat): void {
 		outputJson(task);
 		return;
 	}
-	console.log(formatTaskDetail(task));
+	const shortId = taskShortIds([task]).get(task.id);
+	console.log(formatTaskDetail(task, { shortId }));
 }
 
 // ── Project formatting ──────────────────────────────────────────────────────

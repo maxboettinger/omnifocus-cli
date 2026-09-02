@@ -2,6 +2,7 @@ import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
 import { BridgeError } from "../../core/errors.js";
 import { outputError, outputJson, outputSuccess, resolveFormat } from "../../core/output.js";
+import { peekShortId, resolveTaskRef } from "../../core/short-ids.js";
 import type { OmniFocusClient } from "../../core/types.js";
 
 export function registerCompleteCommand(parent: Command, client: OmniFocusClient): void {
@@ -16,8 +17,9 @@ export function registerCompleteCommand(parent: Command, client: OmniFocusClient
 			try {
 				const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);
 
+				const ref = resolveTaskRef(query, opts.id as string | undefined);
 				const response = await client.completeTask(query, {
-					id: opts.id as string,
+					id: ref.id,
 					incomplete: opts.incomplete as boolean,
 				});
 
@@ -29,7 +31,8 @@ export function registerCompleteCommand(parent: Command, client: OmniFocusClient
 				}
 
 				const action = data.action === "completed" ? "Completed" : "Marked incomplete";
-				outputSuccess(`${action}: ${data.name}`);
+				const shortId = peekShortId(data.id);
+				outputSuccess(`${action}: ${data.name}${shortId != null ? ` (${shortId})` : ""}`);
 			} catch (error) {
 				if (error instanceof BridgeError) {
 					outputError(error);

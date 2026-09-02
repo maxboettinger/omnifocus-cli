@@ -27,8 +27,12 @@ export class BridgeError extends CLIError {
 		this.candidates = candidates;
 	}
 
-	/** Format for human display including disambiguation candidates. */
-	format(): string {
+	/**
+	 * Format for human display including disambiguation candidates. When a
+	 * short-id alias map is provided, candidates show the retryable short
+	 * number instead of the raw OmniFocus id.
+	 */
+	format(shortIds?: ReadonlyMap<string, number>): string {
 		let msg = this.message;
 		if (this.candidates && this.candidates.length > 0) {
 			msg += "\n\nDid you mean:";
@@ -39,7 +43,7 @@ export class BridgeError extends CLIError {
 				}
 				const parts = [c.name];
 				if (c.project) parts.push(`[${c.project}]`);
-				if (c.id) parts.push(`(${c.id})`);
+				if (c.id) parts.push(`(${shortIds?.get(c.id) ?? c.id})`);
 				msg += `\n  - ${parts.join(" ")}`;
 			}
 		}

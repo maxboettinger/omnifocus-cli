@@ -2,6 +2,7 @@ import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
 import { BridgeError } from "../../core/errors.js";
 import { outputError, outputTaskDetail, resolveFormat } from "../../core/output.js";
+import { resolveTaskRef } from "../../core/short-ids.js";
 import type { OmniFocusClient } from "../../core/types.js";
 
 export function registerShowCommand(parent: Command, client: OmniFocusClient): void {
@@ -15,8 +16,10 @@ export function registerShowCommand(parent: Command, client: OmniFocusClient): v
 			try {
 				const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);
 
-				// Use either the query argument or build query from id
-				const searchQuery = query || (opts.id as string);
+				// Prefer an explicit --id, then a short-id alias, then the raw query.
+				// task.get resolves IDs via its byId tier, so an id works as a query.
+				const ref = resolveTaskRef(query, opts.id as string | undefined);
+				const searchQuery = ref.id ?? query;
 
 				const response = await client.getTask(searchQuery, { includeNotifications: true });
 

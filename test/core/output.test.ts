@@ -1,4 +1,7 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
+import { existsSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { BridgeError } from "../../src/core/errors.js";
 import {
 	formatProjectDetail,
@@ -6,10 +9,12 @@ import {
 	formatTaskDetail,
 	formatTaskLine,
 	outputError,
+	outputTaskList,
 	outputWarning,
 	red,
 	resolveFormat,
 } from "../../src/core/output.js";
+import { assignShortIds } from "../../src/core/short-ids.js";
 import type { OFProject, OFTask } from "../../src/core/types.js";
 
 // ── Test fixtures ───────────────────────────────────────────────────────────
@@ -327,6 +332,121 @@ describe("outputWarning stderr structure", () => {
 				captureStderr(() => outputWarning("careful")),
 			);
 			expect(lines[0]).toBe("! careful");
+		});
+	});
+});
+
+// ── Short ID prefixes ───────────────────────────────────────────────────────
+
+const shortIdTempDirs: string[] = [];
+
+function makeShortIdCachePath(): string {
+	const dir = mkdtempSync(join(tmpdir(), "of-output-short-ids-"));
+	shortIdTempDirs.push(dir);
+	return join(dir, "short-ids.json");
+}
+
+afterEach(() => {
+	for (const dir of shortIdTempDirs.splice(0)) {
+		rmSync(dir, { recursive: true, force: true });
+	}
+});
+
+function captureStdout(fn: () => void): string[] {
+	const lines: string[] = [];
+	const original = console.log;
+	console.log = (...args: unknown[]) => {
+		lines.push(args.map(String).join(" "));
+	};
+	try {
+		fn();
+	} finally {
+		console.log = original;
+	}
+	return lines;
+}
+
+describe("formatTaskLine short id prefix", () => {
+	test("prefixes a right-aligned short id when provided", () => {
+		withEnv({ NO_COLOR: "1" }, () => {
+			const line = formatTaskLine(makeTask(), { shortId: 7, shortIdWidth: 3 });
+			expect(line).toStartWith("  7  Buy groceries");
+		});
+	});
+
+	test("renders without a prefix when no short id is provided", () => {
+		withEnv({ NO_COLOR: "1" }, () => {
+			const line = formatTaskLine(makeTask());
+			expect(line).toStartWith("Buy groceries");
+		});
+	});
+});
+
+describe("formatTaskDetail short id", () => {
+	test("shows the short id alongside the OmniFocus id", () => {
+		withEnv({ NO_COLOR: "1" }, () => {
+			const detail = formatTaskDetail(makeTask(), { shortId: 42 });
+			expect(detail).toContain("ID: 42 (task-abc123)");
+		});
+	});
+
+	test("shows only the OmniFocus id when no short id is provided", () => {
+		withEnv({ NO_COLOR: "1" }, () => {
+			const detail = formatTaskDetail(makeTask());
+			expect(detail).toContain("ID: task-abc123");
+			expect(detail).not.toContain("(task-abc123)");
+		});
+	});
+});
+
+describe("outputTaskList short id prefixes", () => {
+	test("human mode prefixes every task with its cached alias", () => {
+		const cachePath = makeShortIdCachePath();
+		withEnv({ NO_COLOR: "1", OF_SHORT_ID_CACHE: cachePath }, () => {
+			const tasks = [makeTask({ id: "ofIdAAAAAAA" }), makeTask({ id: "ofIdBBBBBBB", name: "Two" })];
+			const lines = captureStdout(() => outputTaskList(tasks, "human"));
+			expect(lines[0]).toStartWith("1  Buy groceries");
+			expect(lines[1]).toStartWith("2  Two");
+			// Aliases are stable: a later listing reuses them.
+			expect(assignShortIds(["ofIdBBBBBBB"], { cachePath }).get("ofIdBBBBBBB")).toBe(2);
+		});
+	});
+
+	test("aligns short ids of different widths", () => {
+		const cachePath = makeShortIdCachePath();
+		withEnv({ NO_COLOR: "1", OF_SHORT_ID_CACHE: cachePath }, () => {
+			const many = Array.from({ length: 11 }, (_, i) => makeTask({ id: `of-${i}`, name: `T${i}` }));
+			const lines = captureStdout(() => outputTaskList(many, "human"));
+			expect(lines[0]).toStartWith(" 1  T0");
+			expect(lines[10]).toStartWith("11  T10");
+		});
+	});
+
+	test("human candidates in errors show short ids for retry", () => {
+		const cachePath = makeShortIdCachePath();
+		withEnv({ NO_COLOR: "1", OF_SHORT_ID_CACHE: cachePath }, () => {
+			const err = new BridgeError("Ambiguous", [
+				{ id: "ofIdAAAAAAA", name: "Task A", project: "P" },
+				{ id: "ofIdBBBBBBB", name: "Task B" },
+			]);
+			const lines = withStreamTTY(process.stderr, true, () =>
+				captureStderr(() => outputError(err)),
+			);
+			const text = lines.join("\n");
+			expect(text).toContain("- Task A [P] (1)");
+			expect(text).toContain("- Task B (2)");
+		});
+	});
+
+	test("json mode is unchanged and never writes the cache", () => {
+		const cachePath = makeShortIdCachePath();
+		withEnv({ OF_SHORT_ID_CACHE: cachePath }, () => {
+			const tasks = [makeTask({ id: "ofIdAAAAAAA" })];
+			const lines = captureStdout(() => outputTaskList(tasks, "json"));
+			const parsed = JSON.parse(lines.join("\n"));
+			expect(parsed[0].id).toBe("ofIdAAAAAAA");
+			expect(parsed[0].shortId).toBeUndefined();
+			expect(existsSync(cachePath)).toBe(false);
 		});
 	});
 });

@@ -1,8 +1,9 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../core/client.js";
 import { BridgeError } from "../core/errors.js";
-import { dim, outputError, outputJson, resolveFormat } from "../core/output.js";
+import { dim, outputError, outputJson, resolveFormat, shortIdColumnWidth } from "../core/output.js";
 import { parseIntOption } from "../core/parsers.js";
+import { assignShortIds } from "../core/short-ids.js";
 import type { CollectedTask, OmniFocusClient } from "../core/types.js";
 
 export function registerCollectCommand(program: Command, client: OmniFocusClient): void {
@@ -39,8 +40,13 @@ function outputCollectedTasks(tasks: CollectedTask[]): void {
 		return;
 	}
 
+	const aliases = assignShortIds(tasks.map((t) => t.omnifocus_id));
+	const width = shortIdColumnWidth(aliases);
 	for (const task of tasks) {
-		const parts: string[] = [task.name];
+		const shortId = aliases.get(task.omnifocus_id);
+		const parts: string[] = [];
+		if (shortId != null) parts.push(`${dim(String(shortId).padStart(width))} `);
+		parts.push(task.name);
 		if (task.project) parts.push(dim(`[${task.project}]`));
 		if (task.tags.length > 0) parts.push(dim(task.tags.join(", ")));
 		if (task.completion_date) {

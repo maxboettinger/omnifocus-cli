@@ -6,17 +6,22 @@
  * without requiring OmniFocus to be running.
  */
 
-import { describe, expect, mock, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Readable } from "node:stream";
 import { Command } from "commander";
 import { registerCollectCommand } from "../../src/commands/collect.js";
 import { registerCompletionCommand } from "../../src/commands/completion.js";
 import { registerFolderCommands } from "../../src/commands/folder/index.js";
+import { registerForecastCommand } from "../../src/commands/forecast.js";
 import { registerInboxCommands } from "../../src/commands/inbox/index.js";
 import { registerProjectCommands } from "../../src/commands/project/index.js";
 import { registerStatsCommand } from "../../src/commands/stats.js";
 import { registerTagCommands } from "../../src/commands/tag/index.js";
 import { registerTaskCommands } from "../../src/commands/task/index.js";
+import { assignShortIds } from "../../src/core/short-ids.js";
 import type { OmniFocusClient } from "../../src/core/types.js";
 import { createMockClient } from "../fixtures/mock-client.js";
 import { MOCK_TASK, successResponse } from "../fixtures/mock-responses.js";
@@ -920,5 +925,316 @@ describe("task delete command", () => {
 		} finally {
 			process.exit = origExit;
 		}
+	});
+});
+
+// ── Short ID references ─────────────────────────────────────────────────────
+
+describe("short id references", () => {
+	let savedCachePath: string | undefined;
+	let cachePath: string;
+	const cacheDirs: string[] = [];
+
+	beforeEach(() => {
+		savedCachePath = process.env.OF_SHORT_ID_CACHE;
+		const dir = mkdtempSync(join(tmpdir(), "of-cli-short-ids-"));
+		cacheDirs.push(dir);
+		cachePath = join(dir, "short-ids.json");
+		process.env.OF_SHORT_ID_CACHE = cachePath;
+	});
+
+	afterEach(() => {
+		process.env.OF_SHORT_ID_CACHE = savedCachePath;
+		for (const dir of cacheDirs.splice(0)) {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	function seed(...ofIds: string[]): void {
+		assignShortIds(ofIds, { cachePath });
+	}
+
+	function firstCall(fn: unknown): unknown[] {
+		return (fn as ReturnType<typeof mock>).mock.calls[0] as unknown[];
+	}
+
+	test("task complete resolves a numeric short id to the OmniFocus id", async () => {
+		seed("ofIdAAAAAAA");
+		const { client } = await runCommand(registerTaskCommands, ["task", "complete", "1", "--json"]);
+		const [query, opts] = firstCall(client.completeTask);
+		expect(query).toBe("1");
+		expect((opts as Record<string, unknown>).id).toBe("ofIdAAAAAAA");
+	});
+
+	test("task complete leaves an unknown number as a name query", async () => {
+		const { client } = await runCommand(registerTaskCommands, ["task", "complete", "99", "--json"]);
+		const [query, opts] = firstCall(client.completeTask);
+		expect(query).toBe("99");
+		expect((opts as Record<string, unknown>).id).toBeUndefined();
+	});
+
+	test("task complete leaves a name query untouched", async () => {
+		seed("ofIdAAAAAAA");
+		const { client } = await runCommand(registerTaskCommands, [
+			"task",
+			"complete",
+			"Buy milk",
+			"--json",
+		]);
+		const [query, opts] = firstCall(client.completeTask);
+		expect(query).toBe("Buy milk");
+		expect((opts as Record<string, unknown>).id).toBeUndefined();
+	});
+
+	test("task complete lets an explicit --id win over the alias", async () => {
+		seed("ofIdAAAAAAA");
+		const { client } = await runCommand(registerTaskCommands, [
+			"task",
+			"complete",
+			"1",
+			"--id",
+			"explicit-id",
+			"--json",
+		]);
+		const [, opts] = firstCall(client.completeTask);
+		expect((opts as Record<string, unknown>).id).toBe("explicit-id");
+	});
+
+	test("task update resolves a numeric short id", async () => {
+		seed("ofIdAAAAAAA");
+		const { client } = await runCommand(registerTaskCommands, [
+			"task",
+			"update",
+			"1",
+			"--name",
+			"Renamed",
+			"--json",
+		]);
+		const [opts] = firstCall(client.updateTask);
+		expect(opts).toMatchObject({ query: "1", id: "ofIdAAAAAAA" });
+	});
+
+	test("task delete resolves a numeric short id", async () => {
+		seed("ofIdAAAAAAA");
+		const { client } = await runCommand(registerTaskCommands, [
+			"task",
+			"delete",
+			"1",
+			"--confirm",
+			"--json",
+		]);
+		const [query, opts] = firstCall(client.deleteTask);
+		expect(query).toBe("1");
+		expect((opts as Record<string, unknown>).id).toBe("ofIdAAAAAAA");
+	});
+
+	test("task show resolves a numeric short id to a byId query", async () => {
+		seed("ofIdAAAAAAA");
+		const { client } = await runCommand(registerTaskCommands, ["task", "show", "1", "--json"]);
+		const [query] = firstCall(client.getTask);
+		expect(query).toBe("ofIdAAAAAAA");
+	});
+
+	test("task tag resolves a numeric short id", async () => {
+		seed("ofIdAAAAAAA");
+		const { client } = await runCommand(registerTaskCommands, [
+			"task",
+			"tag",
+			"1",
+			"home",
+			"--json",
+		]);
+		const [query, tags, opts] = firstCall(client.applyTag);
+		expect(query).toBe("1");
+		expect(tags).toEqual(["home"]);
+		expect((opts as Record<string, unknown>).id).toBe("ofIdAAAAAAA");
+	});
+
+	test("task notification add resolves a numeric short id", async () => {
+		seed("ofIdAAAAAAA");
+		const { client } = await runCommand(registerTaskCommands, [
+			"task",
+			"notification",
+			"add",
+			"1",
+			"--kind",
+			"absolute",
+			"--at",
+			"2026-09-01 09:00",
+			"--json",
+		]);
+		const [opts] = firstCall(client.addTaskNotification);
+		expect(opts).toMatchObject({ query: "1", id: "ofIdAAAAAAA" });
+	});
+
+	test("inbox process resolves a numeric short id", async () => {
+		seed("ofIdAAAAAAA");
+		const { client } = await runCommand(registerInboxCommands, [
+			"inbox",
+			"process",
+			"1",
+			"--complete",
+			"--json",
+		]);
+		const [opts] = firstCall(client.processInbox);
+		expect((opts as Record<string, unknown>).id).toBe("ofIdAAAAAAA");
+	});
+
+	test("inbox process still accepts a raw OmniFocus id", async () => {
+		const { client } = await runCommand(registerInboxCommands, [
+			"inbox",
+			"process",
+			"ofIdRAW1234",
+			"--complete",
+			"--json",
+		]);
+		const [opts] = firstCall(client.processInbox);
+		expect((opts as Record<string, unknown>).id).toBe("ofIdRAW1234");
+	});
+});
+
+// ── Short ID display in human output ────────────────────────────────────────
+
+describe("short id display", () => {
+	let savedCachePath: string | undefined;
+	let cachePath: string;
+	const cacheDirs: string[] = [];
+
+	beforeEach(() => {
+		savedCachePath = process.env.OF_SHORT_ID_CACHE;
+		const dir = mkdtempSync(join(tmpdir(), "of-cli-short-id-display-"));
+		cacheDirs.push(dir);
+		cachePath = join(dir, "short-ids.json");
+		process.env.OF_SHORT_ID_CACHE = cachePath;
+	});
+
+	afterEach(() => {
+		process.env.OF_SHORT_ID_CACHE = savedCachePath;
+		for (const dir of cacheDirs.splice(0)) {
+			rmSync(dir, { recursive: true, force: true });
+		}
+	});
+
+	async function runHuman(
+		setup: (program: Command, client: OmniFocusClient) => void,
+		argv: string[],
+		client?: OmniFocusClient,
+	): Promise<{ client: OmniFocusClient; stdout: string[]; stderr: string[] }> {
+		const savedNoColor = process.env.NO_COLOR;
+		process.env.NO_COLOR = "1";
+		const original = Object.getOwnPropertyDescriptor(process.stdout, "isTTY");
+		Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+		try {
+			return await runCommand(setup, argv, client);
+		} finally {
+			if (original) Object.defineProperty(process.stdout, "isTTY", original);
+			else Reflect.deleteProperty(process.stdout, "isTTY");
+			if (savedNoColor === undefined) Reflect.deleteProperty(process.env, "NO_COLOR");
+			else process.env.NO_COLOR = savedNoColor;
+		}
+	}
+
+	test("forecast prefixes bucket tasks with short ids", async () => {
+		const client = createMockClient();
+		const payload = {
+			meta: {
+				generatedAt: "2026-08-31T08:00:00.000Z",
+				today: "2026-08-31",
+				upcomingDays: 3,
+				totalEstimatedMinutes: 30,
+				counts: {
+					overdue: 1,
+					dueToday: 1,
+					plannedToday: 0,
+					deferredToday: 0,
+					flagged: 0,
+					upcoming: 0,
+					availableNext: 0,
+				},
+				dragAlerts: [],
+			},
+			overdue: [{ ...MOCK_TASK, id: "ofIdAAAAAAA", name: "Overdue thing", flagged: false }],
+			due_today: [{ ...MOCK_TASK, id: "ofIdBBBBBBB", name: "Due thing", flagged: false }],
+			planned_today: [],
+			deferred_today: [],
+			flagged: [],
+			upcoming: [],
+			available_next: [],
+		};
+		(client.forecast as ReturnType<typeof mock>).mockImplementation(() =>
+			Promise.resolve(successResponse(payload)),
+		);
+		const { stdout } = await runHuman(
+			(program, c) => registerForecastCommand(program, c),
+			["forecast"],
+			client,
+		);
+		const text = stdout.join("\n");
+		expect(text).toContain("  1  Overdue thing");
+		expect(text).toContain("  2  Due thing");
+	});
+
+	test("collect prefixes completed tasks with short ids", async () => {
+		const client = createMockClient();
+		const payload = [
+			{
+				omnifocus_id: "ofIdAAAAAAA",
+				name: "Done one",
+				project: "P",
+				completion_date: "2026-08-30T10:00:00.000Z",
+				tags: [],
+				estimated_minutes: null,
+				note: "",
+			},
+			{
+				omnifocus_id: "ofIdBBBBBBB",
+				name: "Done two",
+				project: "",
+				completion_date: "2026-08-30T11:00:00.000Z",
+				tags: [],
+				estimated_minutes: null,
+				note: "",
+			},
+		];
+		(client.collectCompleted as ReturnType<typeof mock>).mockImplementation(() =>
+			Promise.resolve(successResponse(payload)),
+		);
+		const { stdout } = await runHuman(
+			(program, c) => registerCollectCommand(program, c),
+			["collect"],
+			client,
+		);
+		expect(stdout[0]).toStartWith("1  Done one");
+		expect(stdout[1]).toStartWith("2  Done two");
+	});
+
+	test("task complete confirmation shows an existing short id", async () => {
+		assignShortIds([MOCK_TASK.id], { cachePath });
+		const { stdout } = await runHuman(registerTaskCommands, ["task", "complete", "1"]);
+		expect(stdout.join("\n")).toContain(`Completed: ${MOCK_TASK.name} (1)`);
+	});
+
+	test("task delete confirmation shows an existing short id but mints none", async () => {
+		const { stdout } = await runHuman(registerTaskCommands, [
+			"task",
+			"delete",
+			MOCK_TASK.name,
+			"--confirm",
+		]);
+		// No alias existed, so none is shown (and none is minted for a deleted task).
+		expect(stdout.join("\n")).toContain(`Deleted: ${MOCK_TASK.name}`);
+		expect(stdout.join("\n")).not.toContain("(1)");
+	});
+
+	test("task update prints the task name, not the raw OmniFocus id", async () => {
+		const { stdout } = await runHuman(registerTaskCommands, [
+			"task",
+			"update",
+			MOCK_TASK.name,
+			"--due",
+			"2026-03-10",
+		]);
+		expect(stdout.join("\n")).toContain(`Updated task: ${MOCK_TASK.name}`);
+		expect(stdout.join("\n")).not.toContain(`Updated task: ${MOCK_TASK.id}`);
 	});
 });

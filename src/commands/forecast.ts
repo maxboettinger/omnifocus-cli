@@ -11,6 +11,8 @@ import {
 	outputJson,
 	red,
 	resolveFormat,
+	shortIdColumnWidth,
+	taskShortIds,
 	yellow,
 } from "../core/output.js";
 import { parseIntOption } from "../core/parsers.js";
@@ -75,12 +77,18 @@ export function registerForecastCommand(program: Command, client: OmniFocusClien
 					},
 				];
 
+				// One alias pass across all buckets so ids align consistently.
+				const aliases = taskShortIds(buckets.flatMap((b) => b.tasks));
+				const width = shortIdColumnWidth(aliases);
+
 				for (const bucket of buckets) {
 					if (bucket.tasks.length === 0) continue;
 
 					console.log(bucket.color(bold(`${bucket.label} (${bucket.tasks.length})`)));
 					for (const task of bucket.tasks) {
-						console.log(`  ${formatTaskLine(task)}`);
+						console.log(
+							`  ${formatTaskLine(task, { shortId: aliases.get(task.id), shortIdWidth: width })}`,
+						);
 					}
 					console.log("");
 				}

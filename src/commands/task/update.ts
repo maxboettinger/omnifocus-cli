@@ -2,6 +2,7 @@ import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
 import { BridgeError } from "../../core/errors.js";
 import { outputChanges, outputError, outputJson, resolveFormat } from "../../core/output.js";
+import { resolveTaskRef } from "../../core/short-ids.js";
 import type { OmniFocusClient } from "../../core/types.js";
 
 export function registerUpdateCommand(parent: Command, client: OmniFocusClient): void {
@@ -37,9 +38,10 @@ export function registerUpdateCommand(parent: Command, client: OmniFocusClient):
 			try {
 				const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);
 
+				const ref = resolveTaskRef(query, opts.id as string | undefined);
 				const response = await client.updateTask({
 					query,
-					id: opts.id as string,
+					id: ref.id,
 					name: opts.name as string,
 					note: opts.note as string,
 					noteAppend: opts.noteAppend as string,
@@ -67,7 +69,7 @@ export function registerUpdateCommand(parent: Command, client: OmniFocusClient):
 					return;
 				}
 
-				outputChanges("task", data.id, data.changes);
+				outputChanges("task", data.task?.name ?? data.id, data.changes);
 			} catch (error) {
 				if (error instanceof BridgeError) {
 					outputError(error);

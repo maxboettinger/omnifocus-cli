@@ -1,48 +1,29 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
-import { BridgeError, ConfirmationRequiredError } from "../../core/errors.js";
-import { outputError, outputJson, outputSuccess, resolveFormat } from "../../core/output.js";
+import { outputEntityAction, outputJson } from "../../core/output.js";
 import type { OmniFocusClient } from "../../core/types.js";
-import { bold } from "../../core/ui/colors.js";
+import { runAction } from "../action.js";
+import { confirmOption, requireConfirm } from "../options/common.js";
+import { projectRefArgument } from "../options/refs.js";
 
 export function registerDeleteCommand(parent: Command, client: OmniFocusClient): void {
-	parent
-		.command("delete")
-		.description("Delete a project")
-		.argument("<query>", "Project name or search query")
-		.option("--id <id>", "Project ID")
-		.option("--confirm", "Confirm deletion (required for safety)")
-		.option("--json", "JSON output")
-		.action(async (query: string, opts: Record<string, unknown>, cmd: Command) => {
-			try {
-				if (!opts.confirm) {
-					outputError(new ConfirmationRequiredError("project delete").message);
-					process.exit(1);
-					return;
-				}
-
-				const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);
-
-				const deleteOptions = {
-					id: opts.id as string,
-					confirm: opts.confirm as boolean,
-				};
-
-				const response = await client.deleteProject(query, deleteOptions);
-				const data = unwrapBridgeResponse(response);
-
-				if (format === "json") {
-					outputJson(data);
-					return;
-				}
-
-				outputSuccess(`${data.action}: ${bold(data.name)}`);
-			} catch (error) {
-				if (error instanceof BridgeError) {
-					outputError(error);
-					process.exit(1);
-				}
-				throw error;
+	const cmd = parent.command("delete").description("Delete a project");
+	projectRefArgument(cmd);
+	confirmOption(cmd);
+	cmd.action(
+		runAction(async (ctx, project: string) => {
+			requireConfirm(ctx.opts, "project delete");
+			const data = unwrapBridgeResponse(
+				await client.deleteProject(project, {
+					id: ctx.opts.id as string | undefined,
+					confirm: true,
+				}),
+			);
+			if (ctx.format === "json") {
+				outputJson(data);
+				return;
 			}
-		});
+			outputEntityAction(data.action, data.name);
+		}),
+	);
 }

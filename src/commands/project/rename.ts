@@ -1,41 +1,25 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
-import { BridgeError } from "../../core/errors.js";
-import { outputError, outputJson, outputSuccess, resolveFormat } from "../../core/output.js";
+import { outputJson, outputSuccess } from "../../core/output.js";
 import type { OmniFocusClient } from "../../core/types.js";
 import { bold } from "../../core/ui/colors.js";
+import { runAction } from "../action.js";
+import { projectRefArgument } from "../options/refs.js";
 
 export function registerRenameCommand(parent: Command, client: OmniFocusClient): void {
-	parent
-		.command("rename")
-		.description("Rename a project")
-		.argument("<query>", "Project name or search query")
-		.argument("<new-name>", "New project name")
-		.option("--id <id>", "Project ID")
-		.option("--json", "JSON output")
-		.action(async (query: string, newName: string, opts: Record<string, unknown>, cmd: Command) => {
-			try {
-				const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);
-
-				const renameOptions = {
-					id: opts.id as string,
-				};
-
-				const response = await client.renameProject(query, newName, renameOptions);
-				const data = unwrapBridgeResponse(response);
-
-				if (format === "json") {
-					outputJson(data);
-					return;
-				}
-
-				outputSuccess(`Renamed project: ${bold(data.oldName)} → ${bold(data.newName)}`);
-			} catch (error) {
-				if (error instanceof BridgeError) {
-					outputError(error);
-					process.exit(1);
-				}
-				throw error;
+	const cmd = parent.command("rename").description("Rename a project");
+	projectRefArgument(cmd);
+	cmd.argument("<new-name>", "New project name");
+	cmd.action(
+		runAction(async (ctx, project: string, newName: string) => {
+			const data = unwrapBridgeResponse(
+				await client.renameProject(project, newName, { id: ctx.opts.id as string | undefined }),
+			);
+			if (ctx.format === "json") {
+				outputJson(data);
+				return;
 			}
-		});
+			outputSuccess(`Renamed project: ${bold(data.oldName)} → ${bold(data.newName)}`);
+		}),
+	);
 }

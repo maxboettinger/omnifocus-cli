@@ -1,59 +1,45 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
-import { BridgeError } from "../../core/errors.js";
-import { outputChanges, outputJson, resolveFormat } from "../../core/output.js";
-import { outputError } from "../../core/output.js";
+import { outputChanges, outputJson } from "../../core/output.js";
 import type { OmniFocusClient } from "../../core/types.js";
+import { runAction } from "../action.js";
+import { projectRefArgument } from "../options/refs.js";
 
 export function registerUpdateCommand(parent: Command, client: OmniFocusClient): void {
-	parent
-		.command("update")
-		.description("Update a project")
-		.argument("[query]", "Project name or search query (optional when --id is provided)")
-		.option("--id <id>", "Project ID")
+	const cmd = parent.command("update").description("Update a project");
+	projectRefArgument(cmd, "optional");
+	cmd
 		.option("--name <name>", "New project name")
 		.option("--note <text>", "Project note")
 		.option("--note-append <text>", "Append to project note")
 		.option("--status <status>", "Project status")
-		.option("--folder <name>", "Parent folder")
-		.option("--sequential", "Make project sequential")
-		.option("--parallel", "Make project parallel")
+		.option("--folder <folder>", "Parent folder")
+		.option("--sequential", "Make the project sequential")
+		.option("--parallel", "Make the project parallel")
 		.option("--flag", "Flag the project")
-		.option("--unflag", "Remove flag from project")
-		.option("--json", "JSON output")
-		.action(async (query: string | undefined, opts: Record<string, unknown>, cmd: Command) => {
-			try {
-				const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);
-
-				const updateOptions = {
-					query,
-					id: opts.id as string,
-					name: opts.name as string,
-					note: opts.note as string,
-					noteAppend: opts.noteAppend as string,
-					status: opts.status as string,
-					folder: opts.folder as string,
-					sequential: opts.sequential as boolean,
-					parallel: opts.parallel as boolean,
-					flag: opts.flag as boolean,
-					unflag: opts.unflag as boolean,
-				};
-
-				const response = await client.updateProject(updateOptions);
-				const data = unwrapBridgeResponse(response);
-
-				if (format === "json") {
+		.option("--unflag", "Remove flag from the project")
+		.action(
+			runAction(async (ctx, project: string | undefined) => {
+				const data = unwrapBridgeResponse(
+					await client.updateProject({
+						query: project,
+						id: ctx.opts.id as string | undefined,
+						name: ctx.opts.name as string | undefined,
+						note: ctx.opts.note as string | undefined,
+						noteAppend: ctx.opts.noteAppend as string | undefined,
+						status: ctx.opts.status as string | undefined,
+						folder: ctx.opts.folder as string | undefined,
+						sequential: ctx.opts.sequential as boolean | undefined,
+						parallel: ctx.opts.parallel as boolean | undefined,
+						flag: ctx.opts.flag as boolean | undefined,
+						unflag: ctx.opts.unflag as boolean | undefined,
+					}),
+				);
+				if (ctx.format === "json") {
 					outputJson(data);
 					return;
 				}
-
 				outputChanges("project", data.project.name, data.changes);
-			} catch (error) {
-				if (error instanceof BridgeError) {
-					outputError(error);
-					process.exit(1);
-				}
-				throw error;
-			}
-		});
+			}),
+		);
 }

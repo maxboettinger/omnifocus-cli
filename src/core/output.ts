@@ -88,6 +88,64 @@ export function outputLimitNotice(count: number, limit: number): void {
 	outputWarning(`showing ${count} items (limit reached) — pass --limit <n> for more`);
 }
 
+/** Report the bridge's soft `warnings` (best-effort property application). */
+export function outputWarnings(warnings?: string[]): void {
+	for (const warning of warnings ?? []) outputWarning(`Partial apply warning: ${warning}`);
+}
+
+/**
+ * Confirm an action on one entity: "✓ Deleted: Buy milk (42)". The short id
+ * is looked up (never minted) so entities leaving circulation don't pollute
+ * the alias cache.
+ */
+export function outputEntityAction(action: string, name: string, id?: string): void {
+	const label = action.charAt(0).toUpperCase() + action.slice(1);
+	const shortId = id != null ? peekShortId(id) : undefined;
+	outputSuccess(`${label}: ${bold(name)}${shortId != null ? ` (${shortId})` : ""}`);
+}
+
+// ── Batch results ───────────────────────────────────────────────────────────
+
+export interface BatchItem {
+	ok: boolean;
+	id?: string;
+	name?: string;
+	error?: string;
+	changes?: string[];
+	warnings?: string[];
+}
+
+export interface BatchSummary {
+	succeeded: number;
+	failed: number;
+	/** Successful items that carried warnings. */
+	partial: number;
+}
+
+/** Human rendering shared by every stdin-driven batch verb. */
+export function outputBatchSummary(title: string, results: readonly BatchItem[]): BatchSummary {
+	const succeeded = results.filter((r) => r.ok);
+	const failed = results.filter((r) => !r.ok);
+	const partial = succeeded.filter((r) => (r.warnings?.length ?? 0) > 0);
+
+	outputSuccess(`${title}: ${succeeded.length} succeeded, ${failed.length} failed`);
+	if (succeeded.length > 0) {
+		console.log(green(`\n✓ ${succeeded.length} succeeded:`));
+		for (const r of succeeded) {
+			const label = r.name ?? r.id ?? "unknown";
+			console.log(`  ${label}${r.id ? ` (${r.id})` : ""}`);
+			for (const change of r.changes ?? []) console.log(dim(`    • ${change}`));
+			for (const warning of r.warnings ?? []) outputWarning(`  ${label}: ${warning}`);
+		}
+	}
+	if (failed.length > 0) {
+		console.log(red(`\n✗ ${failed.length} failed:`));
+		for (const r of failed) console.log(`  ${r.name ?? r.id ?? "unknown"}: ${r.error}`);
+	}
+	console.log(dim(`\nTotal: ${results.length} items`));
+	return { succeeded: succeeded.length, failed: failed.length, partial: partial.length };
+}
+
 // ── Task formatting ─────────────────────────────────────────────────────────
 
 /** Optional short-ID decoration for human-mode task rendering. */

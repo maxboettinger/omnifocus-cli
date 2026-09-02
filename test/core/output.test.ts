@@ -4,13 +4,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BridgeError } from "../../src/core/errors.js";
 import {
+	type BatchSummary,
 	formatProjectDetail,
 	formatProjectLine,
 	formatTaskDetail,
 	formatTaskLine,
+	outputBatchSummary,
+	outputEntityAction,
 	outputError,
 	outputTaskList,
 	outputWarning,
+	outputWarnings,
 	resolveFormat,
 } from "../../src/core/output.js";
 import { assignShortIds } from "../../src/core/short-ids.js";
@@ -395,5 +399,64 @@ describe("outputTaskList short id prefixes", () => {
 			expect(parsed[0].shortId).toBeUndefined();
 			expect(existsSync(cachePath)).toBe(false);
 		});
+	});
+});
+
+// ── Shared batch/entity-action renderers ────────────────────────────────────
+
+function capture(fn: () => void): { out: string[]; err: string[] } {
+	const out: string[] = [];
+	const err: string[] = [];
+	const origLog = console.log;
+	const origErr = console.error;
+	console.log = (...a: unknown[]) => {
+		out.push(a.map(String).join(" "));
+	};
+	console.error = (...a: unknown[]) => {
+		err.push(a.map(String).join(" "));
+	};
+	try {
+		fn();
+	} finally {
+		console.log = origLog;
+		console.error = origErr;
+	}
+	return { out, err };
+}
+
+describe("outputWarnings", () => {
+	test("prints one partial-apply warning per entry and nothing for empty input", () => {
+		expect(capture(() => outputWarnings(undefined)).err).toEqual([]);
+		expect(capture(() => outputWarnings([])).err).toEqual([]);
+		const { err } = capture(() => outputWarnings(["tag X not found"]));
+		expect(err.join("\n")).toContain("Partial apply warning: tag X not found");
+	});
+});
+
+describe("outputEntityAction", () => {
+	test("capitalises the action and appends an existing short id", () => {
+		const { out } = capture(() => outputEntityAction("deleted", "Buy milk"));
+		expect(out).toEqual(["✓ Deleted: Buy milk"]);
+	});
+});
+
+describe("outputBatchSummary", () => {
+	test("reports counts, lists successes with changes and warnings, and failures", () => {
+		let summary: BatchSummary | undefined;
+		const { out, err } = capture(() => {
+			summary = outputBatchSummary("Bulk update completed", [
+				{ ok: true, id: "1", name: "A", changes: ["due: x"], warnings: ["w"] },
+				{ ok: true, id: "2", name: "B" },
+				{ ok: false, id: "3", error: "boom" },
+			]);
+		});
+		expect(summary).toEqual({ succeeded: 2, failed: 1, partial: 1 });
+		const text = out.join("\n");
+		expect(text).toContain("Bulk update completed: 2 succeeded, 1 failed");
+		expect(text).toContain("A (1)");
+		expect(text).toContain("• due: x");
+		expect(text).toContain("3: boom");
+		expect(text).toContain("Total: 3 items");
+		expect(err.join("\n")).toContain("A: w");
 	});
 });

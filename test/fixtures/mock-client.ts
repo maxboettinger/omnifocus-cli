@@ -43,16 +43,6 @@ export function createMockClient(): OmniFocusClient {
 		),
 		listTasks: mock(() => Promise.resolve(successResponse([MOCK_TASK]))),
 		searchTasks: mock(() => Promise.resolve(successResponse([MOCK_TASK]))),
-		createSubtask: mock(() =>
-			Promise.resolve(
-				successResponse({
-					id: "sub-1",
-					name: "Sub task",
-					task: MOCK_TASK,
-					parent: { id: MOCK_TASK.id, name: MOCK_TASK.name, project: "Errands" },
-				}),
-			),
-		),
 		applyTag: mock(() =>
 			Promise.resolve(
 				successResponse({

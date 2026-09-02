@@ -306,6 +306,43 @@ describe("task commands", () => {
 			});
 		}
 	});
+
+	test("task add --parent-id creates a subtask through createTask", async () => {
+		const { client } = await runCommand(registerTaskCommands, [
+			"task",
+			"add",
+			"Buy milk",
+			"--parent-id",
+			"abc",
+			"--json",
+		]);
+		const call = (client.createTask as ReturnType<typeof mock>).mock.calls[0] as [
+			Record<string, unknown>,
+		];
+		expect(call[0]).toMatchObject({ name: "Buy milk", parentId: "abc", parent: undefined });
+	});
+
+	test("task add --parent resolves a short id alias to parentId", async () => {
+		const alias = String(assignShortIds(["real-parent-id"]).get("real-parent-id"));
+		const { client } = await runCommand(registerTaskCommands, [
+			"task",
+			"add",
+			"Buy milk",
+			"--parent",
+			alias,
+			"--json",
+		]);
+		const call = (client.createTask as ReturnType<typeof mock>).mock.calls[0] as [
+			Record<string, unknown>,
+		];
+		expect(call[0]).toMatchObject({ parentId: "real-parent-id", parent: undefined });
+	});
+
+	test("the subtask verb no longer exists", async () => {
+		await expect(
+			runCommand(registerTaskCommands, ["task", "subtask", "x", "--parent-id", "a"]),
+		).rejects.toThrow();
+	});
 });
 
 // ── Project commands ────────────────────────────────────────────────────────

@@ -180,22 +180,6 @@ export interface TaskUpdateOptions {
 	incomplete?: boolean;
 }
 
-export interface SubtaskCreateOptions {
-	name: string;
-	parentId?: string;
-	parent?: string;
-	note?: string;
-	due?: string;
-	defer?: string;
-	planned?: string;
-	tags?: string[];
-	flag?: boolean;
-	estimate?: number;
-	sequential?: boolean;
-	repeat?: string;
-	repeatMethod?: string;
-}
-
 export interface TaskNotificationListOptions {
 	query?: string;
 	id?: string;
@@ -504,16 +488,6 @@ export interface OmniFocusClient {
 	): Promise<BridgeResponse<TaskCompleteResult>>;
 	listTasks(opts: TaskListOptions): Promise<BridgeResponse<OFTask[]>>;
 	searchTasks(query: string, limit?: number): Promise<BridgeResponse<OFTask[]>>;
-	createSubtask(opts: SubtaskCreateOptions): Promise<
-		BridgeResponse<{
-			id: string;
-			name: string;
-			task: OFTask;
-			parent: { id: string; name: string; project: string };
-			changes?: string[];
-			warnings?: string[];
-		}>
-	>;
 	applyTag(
 		query: string,
 		tags: string[],

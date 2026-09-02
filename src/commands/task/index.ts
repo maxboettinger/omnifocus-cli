@@ -7,7 +7,6 @@ import { registerMoveCommand } from "./move.js";
 import { registerNotificationCommands } from "./notification/index.js";
 import { registerSearchCommand } from "./search.js";
 import { registerShowCommand } from "./show.js";
-import { registerSubtaskCommand } from "./subtask.js";
 import { registerTagCommand } from "./tag.js";
 import { registerUpdateCommand } from "./update.js";
 
@@ -25,7 +24,6 @@ export const registerTaskCommands = defineNoun({
 		registerCompleteCommand,
 		registerTagCommand,
 		registerDeleteCommand,
-		registerSubtaskCommand,
 		registerNotificationCommands,
 	],
 });

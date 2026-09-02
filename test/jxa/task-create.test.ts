@@ -80,6 +80,39 @@ describe("task.create", () => {
 		expect(response.ok).toBe(false);
 		expect(response.error).toBe("Task name required");
 	});
+
+	test("with parent name query nests under the parent and reports it", () => {
+		const pushed: unknown[] = [];
+		const parent = { ...parentTask("p1", "Parent", pushed), completed: () => false };
+		const doc = {
+			flattenedTasks: {
+				byId: (id: string) => {
+					throw new Error(`not found: ${id}`);
+				},
+				whose: (predicate: { name: string | { _contains: string } }) => {
+					const name = "parent";
+					const matches =
+						typeof predicate.name === "string"
+							? name === predicate.name.toLowerCase()
+							: name.includes(predicate.name._contains.toLowerCase());
+					return () => (matches ? [parent] : []);
+				},
+			},
+			flattenedProjects: () => [],
+			inboxTasks: { push: () => {} },
+		};
+
+		const response = runBridge(doc, "task.create", { name: "Child", parent: "Parent" });
+
+		expect(response.ok).toBe(true);
+		const data = response.data as {
+			name: string;
+			parent: { id: string; name: string; project: string };
+		};
+		expect(data.name).toBe("Child");
+		expect(data.parent).toEqual({ id: "p1", name: "Parent", project: "Errands" });
+		expect(pushed.length).toBe(1);
+	});
 });
 
 describe("bulk.create", () => {

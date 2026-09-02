@@ -19,7 +19,6 @@ import type {
 	ProjectListOptions,
 	ProjectUpdateOptions,
 	ReviewOptions,
-	SubtaskCreateOptions,
 	TagListOptions,
 	TaskCreateOptions,
 	TaskListOptions,
@@ -74,10 +73,6 @@ export function createClient(): OmniFocusClient {
 
 		async searchTasks(query: string, limit?: number) {
 			return executeBridge(cmd("task.search", { query, limit }));
-		},
-
-		async createSubtask(opts: SubtaskCreateOptions) {
-			return executeBridge(cmd("task.subtask", opts as unknown as Record<string, unknown>));
 		},
 
 		async applyTag(query: string, tags: string[], opts?: { id?: string }) {

@@ -860,33 +860,6 @@ ops["task.search"] = function(of, doc, p) {
     return ok(results);
 };
 
-ops["task.subtask"] = function(of, doc, p) {
-    if (!p.name) return fail("Subtask name required");
-    if (!p.parent && !p.parentId) return fail("Parent task required (parent or parentId)");
-    var parentTask;
-    if (p.parentId) {
-        parentTask = findTaskById(doc, p.parentId);
-        if (!parentTask) return fail("Parent task not found by ID: " + p.parentId);
-    } else {
-        var r = findTaskByQuery(doc, p.parent);
-        if (r.error) return fail(r.error, r.candidates ? { candidates: r.candidates } : {});
-        parentTask = r.task;
-    }
-    var tp = { name: p.name }; if (p.note) tp.note = p.note;
-    var task = of.Task(tp); parentTask.tasks.push(task);
-    var changes = applyTaskProps(of, doc, task, p);
-    var warnings = extractWarnings(changes);
-    var pp = null; try { var ppp = parentTask.containingProject(); if (ppp) pp = ppp.name(); } catch(e) {}
-    return ok({
-        id: task.id(),
-        name: p.name,
-        task: formatTask(task),
-        parent: { id: parentTask.id(), name: parentTask.name(), project: pp || "Inbox" },
-        changes: changes,
-        warnings: warnings
-    });
-};
-
 ops["task.applyTag"] = function(of, doc, p) {
     if (!p.query && !p.id) return fail("Task query or id required");
     if (!p.tags || p.tags.length === 0) return fail("At least one tag required");

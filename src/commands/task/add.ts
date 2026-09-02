@@ -1,75 +1,31 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
-import { BridgeError } from "../../core/errors.js";
-import {
-	outputError,
-	outputJson,
-	outputTaskDetail,
-	outputWarning,
-	resolveFormat,
-} from "../../core/output.js";
-import { parseIntOption } from "../../core/parsers.js";
+import { outputJson, outputSuccess, outputTaskDetail, outputWarnings } from "../../core/output.js";
 import type { OmniFocusClient } from "../../core/types.js";
+import { runAction } from "../action.js";
+import { readTaskCreate, taskCreateOptions } from "../options/task-fields.js";
 
+/**
+ * `of task add <name>` — one creator for inbox tasks, project tasks and
+ * subtasks: `--project` files it, `--parent`/`--parent-id` nests it, neither
+ * lands it in the inbox. Also mounted as `of inbox add` (see ../inbox/index.ts).
+ */
 export function registerAddCommand(parent: Command, client: OmniFocusClient): void {
-	parent
+	const cmd = parent
 		.command("add")
-		.description("Create a task")
-		.argument("<name>", "The task name")
-		.option("--note <text>", "Task note")
-		.option("--due <date>", "Due date")
-		.option("--defer <date>", "Defer date")
-		.option("--planned <date>", "Planned date")
-		.option("--tag <name>", "Apply tag (repeatable)", collect, [])
-		.option("--flag", "Flag the task")
-		.option("--estimate <minutes>", "Estimated minutes", parseIntOption)
-		.option("--project <name>", "Project name")
-		.option("--sequential", "Make task sequential")
-		.option("--repeat <rrule>", "Repetition rule")
-		.option("--repeat-method <method>", "Repetition method")
-		.option("--json", "JSON output")
-		.action(async (name: string, opts: Record<string, unknown>, cmd: Command) => {
-			try {
-				const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);
-
-				const response = await client.createTask({
-					name,
-					note: opts.note as string,
-					due: opts.due as string,
-					defer: opts.defer as string,
-					planned: opts.planned as string,
-					tags: opts.tag as string[],
-					flag: opts.flag as boolean,
-					estimate: opts.estimate as number,
-					project: opts.project as string,
-					sequential: opts.sequential as boolean,
-					repeat: opts.repeat as string,
-					repeatMethod: opts.repeatMethod as string,
-				});
-
-				const data = unwrapBridgeResponse(response);
-
-				if (format === "json") {
-					outputJson(data);
-					return;
-				}
-
-				if (Array.isArray(data.warnings) && data.warnings.length > 0) {
-					for (const warning of data.warnings) {
-						outputWarning(`Partial apply warning: ${warning}`);
-					}
-				}
-				outputTaskDetail(data.task, format);
-			} catch (error) {
-				if (error instanceof BridgeError) {
-					outputError(error);
-					process.exit(1);
-				}
-				throw error;
+		.description("Create a task, in the inbox unless --project or --parent is given")
+		.argument("<name>", "Task name");
+	taskCreateOptions(cmd);
+	cmd.action(
+		runAction(async (ctx, name: string) => {
+			const data = unwrapBridgeResponse(await client.createTask(readTaskCreate(name, ctx.opts)));
+			if (ctx.format === "json") {
+				outputJson(data);
+				return;
 			}
-		});
-}
-
-function collect(val: string, prev: string[]): string[] {
-	return [...prev, val];
+			outputWarnings(data.warnings);
+			outputTaskDetail(data.task, ctx.format);
+			if (data.parent) outputSuccess(`Subtask of: ${data.parent.name} [${data.parent.project}]`);
+		}),
+	);
 }

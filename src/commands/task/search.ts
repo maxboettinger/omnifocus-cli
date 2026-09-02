@@ -1,37 +1,22 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
-import { BridgeError } from "../../core/errors.js";
-import {
-	outputError,
-	outputLimitNotice,
-	outputTaskList,
-	resolveFormat,
-} from "../../core/output.js";
-import { parseIntOption } from "../../core/parsers.js";
+import { outputLimitNotice, outputTaskList } from "../../core/output.js";
 import type { OmniFocusClient } from "../../core/types.js";
+import { runAction } from "../action.js";
+import { limitOption } from "../options/common.js";
 
 export function registerSearchCommand(parent: Command, client: OmniFocusClient): void {
-	parent
+	const cmd = parent
 		.command("search")
 		.description("Search tasks by keyword")
-		.argument("<query>", "Search query")
-		.option("--limit <n>", "Maximum number of results", parseIntOption, 50)
-		.option("--json", "JSON output")
-		.action(async (query: string, opts: Record<string, unknown>, cmd: Command) => {
-			try {
-				const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);
-
-				const response = await client.searchTasks(query, opts.limit as number);
-
-				const tasks = unwrapBridgeResponse(response);
-				outputTaskList(tasks, format);
-				outputLimitNotice(tasks.length, opts.limit as number);
-			} catch (error) {
-				if (error instanceof BridgeError) {
-					outputError(error);
-					process.exit(1);
-				}
-				throw error;
-			}
-		});
+		.argument("<query>", "Search query");
+	limitOption(cmd, 50);
+	cmd.action(
+		runAction(async (ctx, query: string) => {
+			const limit = ctx.opts.limit as number;
+			const tasks = unwrapBridgeResponse(await client.searchTasks(query, limit));
+			outputTaskList(tasks, ctx.format);
+			outputLimitNotice(tasks.length, limit);
+		}),
+	);
 }

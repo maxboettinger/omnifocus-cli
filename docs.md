@@ -25,7 +25,7 @@ Path: @/omnifocus-cli
 
 Three clean layers, each testable independently:
 
-- **CLI** (`src/commands/`): Commander.js wires args to client calls, formats output. Each noun (task, project, tag, folder, inbox, bulk) is a directory with one file per verb. Thin: parse args, call client, format output.
+- **CLI** (`src/commands/`): Commander.js wires args to client calls, formats output. Each noun (task, project, tag, folder, inbox, bulk) is a `defineNoun()` literal (`@/src/commands/noun.ts`) carrying a one-letter alias (`t`, `p`, `g`, `f`, `i`, `b`) and a directory with one file per verb; there is no root mounting of noun verbs, so a verb lives at exactly one place in the tree. Verbs share flag/argument declarations from `@/src/commands/options/` and error/format handling from `runAction()` rather than each redeclaring them. Thin: parse args, call client, format output.
 - **Client** (`src/core/client.ts`): Implements `OmniFocusClient` interface. Each method maps to a bridge operation. All methods return `BridgeResponse<T>`. Injectable/mockable for tests.
 - **Bridge** (`src/core/bridge.ts` + `src/jxa/bridge.js`): `executeBridge()` calls `osascript`, passing the JXA script source (embedded via a Bun text import, not a file path — required so the standalone compiled binary can find it) via `-e`. JSON command in, JSON response out. Single choke point for all OmniFocus communication.
 
@@ -35,20 +35,20 @@ Program assembly is split from the executable entry point: `@/src/program.ts` ex
 
 Noun-verb pattern: `of <noun> <verb> [args] [options]`
 
-| Command Group | Verbs | Example |
-|---------------|-------|---------|
-| `task` | add, list, update, complete, delete, search, show, notification, subtask, tag | `of task add "Buy milk" --due 2026-03-05 --flag` |
-| `project` | add, list, show, update, rename, delete | `of project list --status active` |
-| `tag` | add, list, rename, delete, tasks | `of tag tasks "errand" --json` |
-| `folder` | add, list | `of folder add "Personal" --parent "Life"` |
-| `inbox` | list, add, process | `of inbox list --limit 10` |
-| `bulk` | create, update, complete | `echo '[...]' \| of bulk create` |
-| `forecast` | (top-level) | `of forecast --days 3` |
-| `review` | (top-level) | `of review` |
-| `stats` | (top-level) | `of stats --json` |
-| `collect` | (top-level) | `of collect --days 7` |
+| Command Group | Alias | Verbs | Example |
+|---------------|-------|-------|---------|
+| `task` | `t` | add, list, update, move, complete, delete, search, show, tag, notification | `of task add "Buy milk" --due 2026-03-05 --flag` |
+| `project` | `p` | add, list, show, update, rename, delete | `of project list --status active` |
+| `tag` | `g` | add, list, rename, delete, tasks | `of tag tasks "errand" --json` |
+| `folder` | `f` | add, list | `of folder add "Personal" --parent "Life"` |
+| `inbox` | `i` | list, add, process, process-many | `of inbox list --limit 10` |
+| `bulk` | `b` | add, update, complete | `echo '[...]' \| of bulk add` |
+| `forecast` | — | (top-level) | `of forecast --days 3` |
+| `review` | — | (top-level) | `of review` |
+| `stats` | — | (top-level) | `of stats --json` |
+| `collect` | — | (top-level) | `of collect --days 7` |
 
-All commands support `--json` for machine-readable output (globally or per-command).
+Every noun's one-letter alias works anywhere the full name does (`of t list` = `of task list`); verbs themselves never get aliases, and there are no root-level verb shortcuts. `task add`'s `--parent`/`--parent-id` create a subtask (folded from the former `task subtask`); `inbox add` is the same `registerAddCommand` as `task add`, mounted a second time under `inbox` rather than reimplemented. `--json` is a single root-level option (`@/src/program.ts`), not redeclared per verb.
 
 ### Directory Structure
 
@@ -57,12 +57,14 @@ src/
 ├── index.ts                    # Executable entry: build client, buildProgram(), parseAsync
 ├── program.ts                  # buildProgram(client) — full Commander assembly, no argv side effects
 ├── commands/                   # CLI layer (thin: parse → service → format)
-│   ├── task/                   # add, list, update, complete, search, show, notification/*, subtask, tag
-│   ├── project/                # add, list, show, update, rename, delete
-│   ├── tag/                    # add, list, rename, delete, tasks
-│   ├── folder/                 # add, list
-│   ├── inbox/                  # list, add, process, process-many
-│   ├── bulk/                   # create, update, complete
+│   ├── noun.ts                  # defineNoun() — the one noun registrar (alias, verbs)
+│   ├── options/                 # shared flag/argument groups (common, refs, task-fields)
+│   ├── task/                    # add, list, update, move, complete, search, show, notification/*, tag
+│   ├── project/                 # add, list, show, update, rename, delete
+│   ├── tag/                     # add, list, rename, delete, tasks
+│   ├── folder/                  # add, list
+│   ├── inbox/                   # list, add (= task/add.ts), process, process-many
+│   ├── bulk/                    # add, update, complete
 │   ├── completion.ts
 │   ├── forecast.ts
 │   ├── review.ts
@@ -103,7 +105,9 @@ Input:  { "op": "task.create", "params": { "name": "Buy groceries", "due": "2026
 Output: { "ok": true, "data": { "id": "...", "name": "Buy groceries", "task": { ... } } }
 ```
 
-Operations: `task.create`, `task.get`, `task.update`, `task.complete`, `task.delete`, `task.list`, `task.search`, `task.subtask`, `task.applyTag`, `task.notification.list`, `task.notification.add`, `task.notification.update`, `task.notification.delete`, `task.notification.clear`, `project.create`, `project.get`, `project.list`, `project.update`, `project.rename`, `project.delete`, `tag.create`, `tag.list`, `tag.rename`, `tag.delete`, `tag.tasks`, `folder.create`, `folder.list`, `inbox.list`, `inbox.add`, `inbox.process`, `bulk.create`, `bulk.update`, `bulk.complete`, `forecast`, `review`, `stats`, `collect.completed`
+Operations: `task.create`, `task.get`, `task.update`, `task.complete`, `task.delete`, `task.list`, `task.search`, `task.applyTag`, `task.notification.list`, `task.notification.add`, `task.notification.update`, `task.notification.delete`, `task.notification.clear`, `project.create`, `project.get`, `project.list`, `project.update`, `project.rename`, `project.delete`, `tag.create`, `tag.list`, `tag.rename`, `tag.delete`, `tag.tasks`, `folder.create`, `folder.list`, `inbox.list`, `inbox.process`, `bulk.create`, `bulk.update`, `bulk.complete`, `forecast`, `review`, `stats`, `collect.completed`
+
+`task.create` and `bulk.create` (the bridge op backing the `bulk add` verb — the op name itself is unchanged) both build their task through a shared `createTaskRecord()` helper, which resolves `project` or `parent`/`parentId` (mutually exclusive) before creating the task; there is no separate `task.subtask` or `inbox.add` op — `task add`'s `--parent`/`--parent-id` cover subtask creation, and `inbox add` is the same command as `task add`, mounted a second time.
 
 ### Error Hierarchy
 

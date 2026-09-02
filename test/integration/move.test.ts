@@ -1,6 +1,6 @@
 /**
- * `of move` / `of task move` — reschedule a task's due/defer/planned dates.
- * Mock client only; date parsing itself is covered in test/jxa.
+ * `of task move` / `of t move` (alias) — reschedule a task's due/defer/planned
+ * dates. Mock client only; date parsing itself is covered in test/jxa.
  */
 
 import { afterEach, beforeEach, describe, expect, type mock, test } from "bun:test";

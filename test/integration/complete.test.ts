@@ -1,6 +1,6 @@
 /**
- * `of complete` / `of task complete` — multi-reference completion and the
- * root-level shortcut. Mock client only; no OmniFocus required.
+ * `of task complete` / `of t complete` (alias) — multi-reference completion.
+ * There is no root-level shortcut. Mock client only; no OmniFocus required.
  */
 
 import { afterEach, beforeEach, describe, expect, type mock, test } from "bun:test";

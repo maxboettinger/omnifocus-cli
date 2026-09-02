@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { parseDurationOrClear, parseDurationToSeconds } from "../../src/core/parsers.js";
+import {
+	collectRepeatable,
+	parseDurationOrClear,
+	parseDurationToSeconds,
+	parseIntOrClear,
+} from "../../src/core/parsers.js";
 
 describe("parseDurationToSeconds", () => {
 	test("parses signed and unsigned durations", () => {
@@ -35,5 +40,25 @@ describe("parseDurationOrClear", () => {
 
 	test("delegates to duration parser for numeric inputs", () => {
 		expect(parseDurationOrClear("1h")).toBe(3600);
+	});
+});
+
+describe("collectRepeatable", () => {
+	test("appends each value without mutating the previous array", () => {
+		const first = collectRepeatable("a", []);
+		const second = collectRepeatable("b", first);
+		expect(first).toEqual(["a"]);
+		expect(second).toEqual(["a", "b"]);
+	});
+});
+
+describe("parseIntOrClear", () => {
+	test("passes 'clear' through and parses integers", () => {
+		expect(parseIntOrClear("clear")).toBe("clear");
+		expect(parseIntOrClear("30")).toBe(30);
+	});
+
+	test("rejects non-numbers", () => {
+		expect(() => parseIntOrClear("abc")).toThrow("Invalid number: abc");
 	});
 });

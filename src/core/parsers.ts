@@ -41,3 +41,14 @@ export function parseDurationOrClear(value: string): number | "clear" {
 	if (value === "clear") return "clear";
 	return parseDurationToSeconds(value);
 }
+
+/** Commander repeatable-option accumulator: `--tag a --tag b` → ["a", "b"]. */
+export function collectRepeatable(value: string, previous: string[]): string[] {
+	return [...previous, value];
+}
+
+/** Integer option that also accepts the literal `clear` (used to remove a value). */
+export function parseIntOrClear(value: string): number | "clear" {
+	if (value === "clear") return "clear";
+	return parseIntOption(value);
+}

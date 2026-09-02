@@ -1,67 +1,53 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../../core/client.js";
-import { BridgeError } from "../../../core/errors.js";
-import { outputError, outputJson, outputSuccess, resolveFormat } from "../../../core/output.js";
+import { CLIError } from "../../../core/errors.js";
+import { outputJson, outputSuccess } from "../../../core/output.js";
 import { parseDurationOrClear, parseDurationToSeconds } from "../../../core/parsers.js";
-import { resolveTaskRef } from "../../../core/short-ids.js";
 import type { OmniFocusClient } from "../../../core/types.js";
+import { runAction } from "../../action.js";
+import { readTaskRef, taskRefArgument } from "../../options/refs.js";
 
 export function registerUpdateCommand(parent: Command, client: OmniFocusClient): void {
-	parent
-		.command("update")
-		.description("Update a task notification")
-		.argument("[query]", "Task query (can be omitted when using --id)")
-		.option("--id <id>", "Task ID")
+	const cmd = parent.command("update").description("Update a task notification");
+	taskRefArgument(cmd);
+	cmd
 		.option("--notification-id <id>", "Notification ID")
 		.option("--at <date>", "Absolute fire date")
 		.option("--offset <duration>", "Relative offset duration", parseDurationToSeconds)
 		.option("--repeat <duration|clear>", "Repeat duration or 'clear'", parseDurationOrClear)
-		.option("--json", "JSON output")
-		.action(async (query: string, opts: Record<string, unknown>, cmd: Command) => {
-			try {
-				const notificationId = opts.notificationId as string;
-				const at = opts.at as string | undefined;
-				const offsetSeconds = opts.offset as number | undefined;
-				const repeatSeconds = opts.repeat as number | "clear" | undefined;
+		.action(
+			runAction(async (ctx, ref: string | undefined) => {
+				const notificationId = ctx.opts.notificationId as string;
+				const at = ctx.opts.at as string | undefined;
+				const offsetSeconds = ctx.opts.offset as number | undefined;
+				const repeatSeconds = ctx.opts.repeat as number | "clear" | undefined;
 
 				if (!notificationId) {
-					outputError("--notification-id is required");
-					process.exit(1);
-					return;
+					throw new CLIError("--notification-id is required");
 				}
 				if (at == null && offsetSeconds == null && repeatSeconds == null) {
-					outputError("At least one update is required: --at, --offset, or --repeat");
-					process.exit(1);
-					return;
+					throw new CLIError("At least one update is required: --at, --offset, or --repeat");
 				}
 				if (typeof repeatSeconds === "number" && repeatSeconds < 0) {
-					outputError("--repeat must be a non-negative duration or 'clear'");
-					process.exit(1);
-					return;
+					throw new CLIError("--repeat must be a non-negative duration or 'clear'");
 				}
 
-				const format = resolveFormat((opts.json as boolean) || cmd.optsWithGlobals().json);
-				const response = await client.updateTaskNotification({
-					query,
-					id: resolveTaskRef(query, opts.id as string | undefined).id,
-					notificationId,
-					at,
-					offsetSeconds,
-					repeatSeconds,
-				});
-				const data = unwrapBridgeResponse(response);
+				const data = unwrapBridgeResponse(
+					await client.updateTaskNotification({
+						query: ref,
+						id: readTaskRef(ref, ctx.opts).id,
+						notificationId,
+						at,
+						offsetSeconds,
+						repeatSeconds,
+					}),
+				);
 
-				if (format === "json") {
+				if (ctx.format === "json") {
 					outputJson(data);
 					return;
 				}
 				outputSuccess(`Updated notification ${data.notification.id} on: ${data.taskName}`);
-			} catch (error) {
-				if (error instanceof BridgeError) {
-					outputError(error);
-					process.exit(1);
-				}
-				throw error;
-			}
-		});
+			}),
+		);
 }

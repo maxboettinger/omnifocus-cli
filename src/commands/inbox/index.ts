@@ -1,5 +1,5 @@
 import { defineNoun } from "../noun.js";
-import { registerAddCommand } from "./add.js";
+import { registerAddCommand } from "../task/add.js";
 import { registerListCommand } from "./list.js";
 import { registerProcessManyCommand } from "./process-many.js";
 import { registerProcessCommand } from "./process.js";

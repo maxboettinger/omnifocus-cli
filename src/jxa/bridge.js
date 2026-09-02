@@ -1249,22 +1249,6 @@ ops["inbox.list"] = function(of, doc, p) {
     return ops["task.list"](of, doc, { filter: "inbox", limit: p.limit || 50, newestFirst: !!p.newestFirst });
 };
 
-ops["inbox.add"] = function(of, doc, p) {
-    if (!p.name) return fail("Task name required");
-    var targetProject = null;
-    if (p.project) {
-        var lookup = findExistingProject(doc, p.project);
-        if (lookup.error) return fail(lookup.error, lookup.candidates ? { candidates: lookup.candidates } : {});
-        targetProject = lookup.project;
-    }
-    var tp = { name: p.name }; if (p.note) tp.note = p.note;
-    var task = of.InboxTask(tp); doc.inboxTasks.push(task);
-    var changes = applyTaskProps(of, doc, task, p);
-    var warnings = extractWarnings(changes);
-    if (targetProject) task.assignedContainer = targetProject;
-    return ok({ id: task.id(), name: task.name(), task: formatTask(task), changes: changes, warnings: warnings });
-};
-
 ops["inbox.process"] = function(of, doc, p) {
     if (!p.id) return fail("Task ID required");
     var task = null;

@@ -24,6 +24,7 @@ import { assignShortIds } from "../../src/core/short-ids.js";
 import type { OmniFocusClient } from "../../src/core/types.js";
 import { createMockClient } from "../fixtures/mock-client.js";
 import { MOCK_TASK, successResponse } from "../fixtures/mock-responses.js";
+import { withStreamTTY } from "../helpers/env.js";
 import { runCommand, runCommandWithStdin } from "../helpers/run.js";
 
 // ── Task commands ───────────────────────────────────────────────────────────
@@ -494,22 +495,25 @@ describe("folder commands", () => {
 // ── Inbox commands ──────────────────────────────────────────────────────────
 
 describe("inbox commands", () => {
-	test("inbox add in human mode does not print undefined", async () => {
-		const originalIsTTY = process.stdout.isTTY;
-		Object.defineProperty(process.stdout, "isTTY", {
-			value: true,
-			configurable: true,
-		});
+	test("inbox add is the task add verb and creates through createTask", async () => {
+		const { client } = await runCommand(registerInboxCommands, [
+			"inbox",
+			"add",
+			"Quick note",
+			"--json",
+		]);
+		expect(client.createTask).toHaveBeenCalledTimes(1);
+		const call = (client.createTask as ReturnType<typeof mock>).mock.calls[0] as [
+			Record<string, unknown>,
+		];
+		expect(call[0]).toMatchObject({ name: "Quick note", project: undefined });
+	});
 
-		try {
-			const { stdout } = await runCommand(registerInboxCommands, ["inbox", "add", "Quick note"]);
-			expect(stdout.some((line) => line.includes("undefined"))).toBeFalse();
-		} finally {
-			Object.defineProperty(process.stdout, "isTTY", {
-				value: originalIsTTY,
-				configurable: true,
-			});
-		}
+	test("inbox add in human mode does not print undefined", async () => {
+		const { stdout } = await withStreamTTY(process.stdout, true, () =>
+			runCommand(registerInboxCommands, ["inbox", "add", "Quick note"]),
+		);
+		expect(stdout.some((line) => line.includes("undefined"))).toBeFalse();
 	});
 
 	test("inbox process-many calls processInbox for each stdin item", async () => {

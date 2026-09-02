@@ -17,9 +17,9 @@ function emptyDoc(): Record<string, unknown> {
 	};
 }
 
-// inbox.add with no name returns a deterministic, doc-independent error —
+// task.create with no name returns a deterministic, doc-independent error —
 // proof the command JSON was decoded and dispatched to the right op.
-const PROBE_COMMAND = JSON.stringify({ op: "inbox.add", params: {} });
+const PROBE_COMMAND = JSON.stringify({ op: "task.create", params: {} });
 
 describe("@stdin command passing", () => {
 	test("reads the command JSON from stdin when args[0] is @stdin", () => {
@@ -49,7 +49,7 @@ describe("@stdin command passing", () => {
 
 describe("OmniFocus unavailable", () => {
 	test("returns a structured failure when the app cannot be opened", () => {
-		const command = JSON.stringify({ op: "inbox.add", params: { name: "x" } });
+		const command = JSON.stringify({ op: "task.create", params: { name: "x" } });
 		const response = runBridgeArgs(emptyDoc(), [command], undefined, {
 			applicationUnavailable: true,
 		});

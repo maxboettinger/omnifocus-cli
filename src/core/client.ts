@@ -177,10 +177,6 @@ export function createClient(): OmniFocusClient {
 			return executeBridge(cmd("inbox.list", { limit, ...opts }));
 		},
 
-		async addInbox(opts: TaskCreateOptions) {
-			return executeBridge(cmd("inbox.add", opts as unknown as Record<string, unknown>));
-		},
-
 		async processInbox(opts: InboxProcessOptions) {
 			return executeBridge(cmd("inbox.process", opts as unknown as Record<string, unknown>));
 		},

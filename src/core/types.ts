@@ -578,15 +578,6 @@ export interface OmniFocusClient {
 
 	// Inbox
 	listInbox(limit?: number, opts?: { newestFirst?: boolean }): Promise<BridgeResponse<OFTask[]>>;
-	addInbox(opts: TaskCreateOptions): Promise<
-		BridgeResponse<{
-			id: string;
-			name: string;
-			task: OFTask;
-			changes?: string[];
-			warnings?: string[];
-		}>
-	>;
 	processInbox(
 		opts: InboxProcessOptions,
 	): Promise<BridgeResponse<{ id: string; changes: string[]; task?: OFTask }>>;

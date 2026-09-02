@@ -19,7 +19,9 @@ function runWithTtyStdin(
 }
 
 describe("stdin TTY guard", () => {
-	const cases: Array<{
+	// Bulk verbs still call readStdin() directly outside runAction, so the
+	// CLIError propagates as a rejection.
+	const throwingCases: Array<{
 		name: string;
 		setup: (program: Command, client: OmniFocusClient) => void;
 		argv: string[];
@@ -27,16 +29,23 @@ describe("stdin TTY guard", () => {
 		{ name: "bulk create", setup: registerBulkCommands, argv: ["bulk", "create"] },
 		{ name: "bulk update", setup: registerBulkCommands, argv: ["bulk", "update"] },
 		{ name: "bulk complete", setup: registerBulkCommands, argv: ["bulk", "complete"] },
-		{
-			name: "inbox process-many",
-			setup: registerInboxCommands,
-			argv: ["inbox", "process-many"],
-		},
 	];
 
-	for (const { name, setup, argv } of cases) {
+	for (const { name, setup, argv } of throwingCases) {
 		test(`${name} errors immediately when stdin is a TTY`, async () => {
 			await expect(runWithTtyStdin(setup, argv)).rejects.toThrow(/No input on stdin.*\| of /s);
 		});
 	}
+
+	// inbox process-many runs through runAction, which catches the CLIError
+	// thrown by readJsonArray/readStdin and reports it via outputError +
+	// process.exit instead of letting it propagate as a rejection.
+	test("inbox process-many errors immediately when stdin is a TTY", async () => {
+		const { stderr, exitCode } = await runWithTtyStdin(registerInboxCommands, [
+			"inbox",
+			"process-many",
+		]);
+		expect(exitCode).toBe(1);
+		expect(stderr.some((line) => /No input on stdin.*\| of /s.test(line))).toBeTrue();
+	});
 });

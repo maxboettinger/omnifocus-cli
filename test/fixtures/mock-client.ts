@@ -156,9 +156,6 @@ export function createMockClient(): OmniFocusClient {
 		listFolders: mock(() => Promise.resolve(successResponse(["Personal", "Work"]))),
 
 		listInbox: mock(() => Promise.resolve(successResponse([MOCK_TASK]))),
-		addInbox: mock(() =>
-			Promise.resolve(successResponse({ id: MOCK_TASK.id, name: MOCK_TASK.name, task: MOCK_TASK })),
-		),
 		processInbox: mock(() =>
 			Promise.resolve(
 				successResponse({ id: "inbox-1", changes: ["moved to project"], task: MOCK_TASK }),

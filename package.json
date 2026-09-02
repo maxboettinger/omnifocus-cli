@@ -48,7 +48,8 @@
 		"build": "bun build --compile src/index.ts --outfile of"
 	},
 	"dependencies": {
-		"commander": "^13.1.0"
+		"commander": "^13.1.0",
+		"yocto-spinner": "^1.2.2"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^1.9.0",

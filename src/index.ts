@@ -9,9 +9,12 @@
 import { createClient } from "./core/client.js";
 import { CLIError } from "./core/errors.js";
 import { outputError } from "./core/output.js";
+import { withProgress } from "./core/ui/progress.js";
 import { buildProgram } from "./program.js";
 
-const program = buildProgram(createClient());
+// The progress decorator is the only UI concern wired at the entry point:
+// every bridge round-trip gets a stderr spinner in human mode (see ui/progress).
+const program = buildProgram(withProgress(createClient()));
 
 // Global error handler
 program.exitOverride();

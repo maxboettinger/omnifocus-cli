@@ -90,6 +90,10 @@ Built for both humans and scripts/agents:
 - **Exit codes**: `0` on success, `1` on any error (including missing `--confirm`).
 - **Colors**: ANSI colors only on a terminal; [`NO_COLOR`](https://no-color.org/) disables
   them, `FORCE_COLOR` forces them.
+- **Progress**: in human mode on an interactive terminal, a spinner on stderr shows which
+  OmniFocus round-trip is in flight and is erased before output appears. It never appears in
+  JSON mode (`--json` or piped stdout), under `CI`, or on `TERM=dumb` — the JSON interface is
+  for agents and carries no UI chrome at all.
 
 ### Tasks
 
@@ -261,6 +265,11 @@ Three clean layers:
 1. **CLI** (`src/commands/`) -- Commander.js commands. Parse args, call client, format output. Assembled by `src/program.ts`; `src/index.ts` is the thin executable entry point.
 2. **Client** (`src/core/client.ts`) -- `OmniFocusClient` interface. Each method maps to a bridge op.
 3. **Bridge** (`src/core/bridge.ts` + `src/jxa/bridge.js`) -- Single JXA script. JSON command in, JSON response out. Commands over 128KB are piped through stdin (`@stdin` sentinel) to stay clear of ARG_MAX.
+
+Human-mode presentation is split from those layers: `src/core/output.ts` renders OmniFocus
+entities, and `src/core/ui/` holds entity-agnostic terminal primitives (ANSI colors,
+interactivity detection, the progress spinner). The spinner is a decorator over the client
+(`withProgress`) wired once in `src/index.ts`, so commands never know it exists.
 
 ### Testing
 

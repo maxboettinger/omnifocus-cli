@@ -18,7 +18,9 @@ import { registerReviewCommand } from "./commands/review.js";
 import { registerStatsCommand } from "./commands/stats.js";
 import { registerTagCommands } from "./commands/tag/index.js";
 import { registerTaskCommands } from "./commands/task/index.js";
+import { resolveFormat } from "./core/output.js";
 import type { OmniFocusClient } from "./core/types.js";
+import { setProgressEnabled } from "./core/ui/progress.js";
 
 export function buildProgram(client: OmniFocusClient): Command {
 	const program = new Command();
@@ -28,6 +30,14 @@ export function buildProgram(client: OmniFocusClient): Command {
 		.description("Professional CLI for OmniFocus task management")
 		.version(pkg.version)
 		.option("--json", "Output in JSON format");
+
+	// Progress chrome (spinners on stderr) is opt-in per invocation: it is
+	// allowed only when the resolved output format is human. JSON runs —
+	// explicit --json, piped stdout, agent harnesses — never see it.
+	program.hook("preAction", (_thisCommand, actionCommand) => {
+		const json = actionCommand.optsWithGlobals().json as boolean | undefined;
+		setProgressEnabled(resolveFormat(json) === "human");
+	});
 
 	registerTaskCommands(program, client);
 	registerProjectCommands(program, client);

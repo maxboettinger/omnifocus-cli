@@ -7,7 +7,6 @@ import { afterEach, beforeEach, describe, expect, type mock, test } from "bun:te
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { registerShortcutCommands } from "../../src/commands/shortcuts.js";
 import { registerTaskCommands } from "../../src/commands/task/index.js";
 import { assignShortIds } from "../../src/core/short-ids.js";
 import { buildProgram } from "../../src/program.js";
@@ -34,18 +33,19 @@ function updateArgs(client: ReturnType<typeof createMockClient>): Record<string,
 }
 
 describe("registration", () => {
-	test("buildProgram registers `move` at the root and under task", () => {
+	test("move lives under task only, never at the root", () => {
 		const program = buildProgram(createMockClient());
-		expect(program.commands.map((c) => c.name())).toContain("move");
+		expect(program.commands.map((c) => c.name())).not.toContain("move");
 		const task = program.commands.find((c) => c.name() === "task");
 		expect(task?.commands.map((c) => c.name())).toContain("move");
 	});
 });
 
 describe("argument mapping", () => {
-	test("`of move 1 tomorrow` resolves the short id and sets only the due date", async () => {
+	test("`of t move 1 tomorrow` resolves the short id and sets only the due date", async () => {
 		assignShortIds(["ofIdAAAAAAA"]);
-		const { client } = await runCommand(registerShortcutCommands, [
+		const { client } = await runCommand(registerTaskCommands, [
+			"t",
 			"move",
 			"1",
 			"tomorrow",
@@ -77,7 +77,8 @@ describe("argument mapping", () => {
 	});
 
 	test("`clear` is passed through to remove a date", async () => {
-		const { client } = await runCommand(registerShortcutCommands, [
+		const { client } = await runCommand(registerTaskCommands, [
+			"task",
 			"move",
 			"Buy milk",
 			"clear",
@@ -87,7 +88,8 @@ describe("argument mapping", () => {
 	});
 
 	test("an explicit --id wins over the positional", async () => {
-		const { client } = await runCommand(registerShortcutCommands, [
+		const { client } = await runCommand(registerTaskCommands, [
+			"task",
 			"move",
 			"--id",
 			"explicit",
@@ -99,7 +101,8 @@ describe("argument mapping", () => {
 	});
 
 	test("with --id, a sole positional is the date, not the reference", async () => {
-		const { client } = await runCommand(registerShortcutCommands, [
+		const { client } = await runCommand(registerTaskCommands, [
+			"task",
 			"move",
 			"--id",
 			"explicit",
@@ -111,7 +114,8 @@ describe("argument mapping", () => {
 	});
 
 	test("with no date at all it fails before touching OmniFocus", async () => {
-		const { client, stderr, exitCode } = await runCommand(registerShortcutCommands, [
+		const { client, stderr, exitCode } = await runCommand(registerTaskCommands, [
+			"task",
 			"move",
 			"Buy milk",
 			"--json",
@@ -141,8 +145,8 @@ describe("output", () => {
 			),
 		);
 		const { stdout, exitCode } = await runCommand(
-			registerShortcutCommands,
-			["move", "Buy milk", "tomorrow", "--json"],
+			registerTaskCommands,
+			["task", "move", "Buy milk", "tomorrow", "--json"],
 			client,
 		);
 		const parsed = JSON.parse(stdout.join("\n"));
@@ -160,7 +164,7 @@ describe("output", () => {
 		);
 		const result = await withEnv({ NO_COLOR: "1" }, () =>
 			withStreamTTY(process.stdout, true, () =>
-				runCommand(registerShortcutCommands, ["move", "1", "tomorrow"], client),
+				runCommand(registerTaskCommands, ["task", "move", "1", "tomorrow"], client),
 			),
 		);
 		const [header, ...lines] = result.stdout;
@@ -181,7 +185,7 @@ describe("output", () => {
 		);
 		const result = await withEnv({ NO_COLOR: "1" }, () =>
 			withStreamTTY(process.stdout, true, () =>
-				runCommand(registerShortcutCommands, ["move", "Buy milk", "tomorrow"], client),
+				runCommand(registerTaskCommands, ["task", "move", "Buy milk", "tomorrow"], client),
 			),
 		);
 		const text = result.stdout.join("\n");
@@ -197,7 +201,7 @@ describe("output", () => {
 		);
 		const result = await withEnv({ NO_COLOR: undefined, FORCE_COLOR: "1" }, () =>
 			withStreamTTY(process.stdout, true, () =>
-				runCommand(registerShortcutCommands, ["move", "Buy milk", "tomorrow"], client),
+				runCommand(registerTaskCommands, ["task", "move", "Buy milk", "tomorrow"], client),
 			),
 		);
 		const [, deferLine, dueLine] = result.stdout;
@@ -219,7 +223,7 @@ describe("output", () => {
 		);
 		const result = await withEnv({ NO_COLOR: "1" }, () =>
 			withStreamTTY(process.stdout, true, () =>
-				runCommand(registerShortcutCommands, ["move", "Buy milk", "clear"], client),
+				runCommand(registerTaskCommands, ["task", "move", "Buy milk", "clear"], client),
 			),
 		);
 		expect(result.stdout.join("\n")).toMatch(/Due:.*cleared/);
@@ -231,8 +235,8 @@ describe("output", () => {
 			Promise.resolve(errorResponse('Could not understand date "junk"')),
 		);
 		const { stderr, exitCode } = await runCommand(
-			registerShortcutCommands,
-			["move", "Buy milk", "junk", "--json"],
+			registerTaskCommands,
+			["task", "move", "Buy milk", "junk", "--json"],
 			client,
 		);
 		expect(exitCode).toBe(1);

@@ -15,7 +15,6 @@ import { registerForecastCommand } from "./commands/forecast.js";
 import { registerInboxCommands } from "./commands/inbox/index.js";
 import { registerProjectCommands } from "./commands/project/index.js";
 import { registerReviewCommand } from "./commands/review.js";
-import { registerShortcutCommands } from "./commands/shortcuts.js";
 import { registerStatsCommand } from "./commands/stats.js";
 import { registerTagCommands } from "./commands/tag/index.js";
 import { registerTaskCommands } from "./commands/task/index.js";
@@ -46,8 +45,6 @@ export function buildProgram(client: OmniFocusClient): Command {
 	registerFolderCommands(program, client);
 	registerInboxCommands(program, client);
 	registerBulkCommands(program, client);
-	// Root-level verbs that mirror task verbs (`of complete` ≡ `of task complete`).
-	registerShortcutCommands(program, client);
 	registerForecastCommand(program, client);
 	registerReviewCommand(program, client);
 	registerStatsCommand(program, client);

@@ -8,9 +8,9 @@ import { readTaskRef, taskRefArgument } from "../options/refs.js";
 import { taskDateOptions } from "../options/task-fields.js";
 
 /**
- * `of task move <ref> [due]` — also mounted at the root as `of move` (see
- * ../shortcuts.ts). Reschedules a task: the positional date sets the due
- * date; `--defer` / `--planned` set the other fields and can be combined.
+ * `of task move <ref> [due]` (also `of t move`). Reschedules a task: the
+ * positional date sets the due date; `--defer` / `--planned` set the other
+ * fields and can be combined.
  * Dates accept anything OmniFocus's own date fields accept ("tomorrow",
  * "fri 5pm", "2d", "10.9.") plus ISO forms; `clear` removes a date. The
  * bridge resolves, stores and reads back every date, so the confirmation

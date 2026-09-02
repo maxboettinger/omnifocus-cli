@@ -11,11 +11,10 @@ type RefOutcome =
 	| { ref: string | undefined; ok: false; error: BridgeError };
 
 /**
- * `of task complete <refs...>` — also mounted at the root as `of complete`
- * (see ../shortcuts.ts). Each reference is resolved and completed through
- * the single-task `task.complete` op so every one of them keeps the full
- * semantics: short-id aliases, fuzzy names, disambiguation candidates and
- * the "already completed" hint.
+ * `of task complete <refs...>` (also `of t complete`). Each reference is
+ * resolved and completed through the single-task `task.complete` op so
+ * every one of them keeps the full semantics: short-id aliases, fuzzy
+ * names, disambiguation candidates and the "already completed" hint.
  */
 export function registerCompleteCommand(parent: Command, client: OmniFocusClient): void {
 	const cmd = parent.command("complete").description("Complete one or more tasks");

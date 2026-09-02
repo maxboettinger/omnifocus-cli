@@ -7,7 +7,6 @@ import { afterEach, beforeEach, describe, expect, type mock, test } from "bun:te
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { registerShortcutCommands } from "../../src/commands/shortcuts.js";
 import { registerTaskCommands } from "../../src/commands/task/index.js";
 import { assignShortIds } from "../../src/core/short-ids.js";
 import { buildProgram } from "../../src/program.js";
@@ -33,25 +32,26 @@ afterEach(() => {
 	rmSync(cacheDir, { recursive: true, force: true });
 });
 
-describe("root shortcut", () => {
-	test("buildProgram registers `complete` at the root", () => {
+describe("registration", () => {
+	test("complete lives under task only, never at the root", () => {
 		const program = buildProgram(createMockClient());
-		const names = program.commands.map((c) => c.name());
-		expect(names).toContain("complete");
-		expect(names).toContain("task");
+		expect(program.commands.map((c) => c.name())).not.toContain("complete");
+		const task = program.commands.find((c) => c.name() === "task");
+		expect(task?.commands.map((c) => c.name())).toContain("complete");
 	});
 
-	test("`of complete 1` resolves the short id and completes the task", async () => {
+	test("`of t complete 1` resolves the short id and completes the task", async () => {
 		assignShortIds(["ofIdAAAAAAA"]);
-		const { client } = await runCommand(registerShortcutCommands, ["complete", "1", "--json"]);
+		const { client } = await runCommand(registerTaskCommands, ["t", "complete", "1", "--json"]);
 		expect(client.completeTask).toHaveBeenCalledTimes(1);
 		const [query, opts] = (client.completeTask as Mock).mock.calls[0] as [string, { id?: string }];
 		expect(query).toBe("1");
 		expect(opts.id).toBe("ofIdAAAAAAA");
 	});
 
-	test("`of complete --incomplete` reopens like `task complete`", async () => {
-		const { client } = await runCommand(registerShortcutCommands, [
+	test("`of task complete --incomplete` reopens like `task complete`", async () => {
+		const { client } = await runCommand(registerTaskCommands, [
+			"task",
 			"complete",
 			"Buy milk",
 			"--incomplete",

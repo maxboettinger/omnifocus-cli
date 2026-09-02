@@ -1,9 +1,9 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
 import { BridgeError } from "../../core/errors.js";
-import { outputJson, outputSuccess, resolveFormat } from "../../core/output.js";
-import { bold, outputError } from "../../core/output.js";
+import { outputError, outputJson, outputSuccess, resolveFormat } from "../../core/output.js";
 import type { OmniFocusClient } from "../../core/types.js";
+import { bold } from "../../core/ui/colors.js";
 
 export function registerRenameCommand(parent: Command, client: OmniFocusClient): void {
 	parent

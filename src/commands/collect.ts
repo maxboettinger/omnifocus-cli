@@ -1,10 +1,11 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../core/client.js";
 import { BridgeError } from "../core/errors.js";
-import { dim, outputError, outputJson, resolveFormat, shortIdColumnWidth } from "../core/output.js";
+import { outputError, outputJson, resolveFormat, shortIdColumnWidth } from "../core/output.js";
 import { parseIntOption } from "../core/parsers.js";
 import { assignShortIds } from "../core/short-ids.js";
 import type { CollectedTask, OmniFocusClient } from "../core/types.js";
+import { dim } from "../core/ui/colors.js";
 
 export function registerCollectCommand(program: Command, client: OmniFocusClient): void {
 	program

@@ -1,9 +1,10 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../core/client.js";
 import { BridgeError } from "../core/errors.js";
-import { bold, dim, green, outputError, outputJson, resolveFormat } from "../core/output.js";
+import { outputError, outputJson, resolveFormat } from "../core/output.js";
 import { parseIntOption } from "../core/parsers.js";
 import type { OmniFocusClient } from "../core/types.js";
+import { bold, dim, green } from "../core/ui/colors.js";
 
 export function registerReviewCommand(program: Command, client: OmniFocusClient): void {
 	program

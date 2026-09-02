@@ -1,16 +1,9 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../core/client.js";
 import { BridgeError } from "../core/errors.js";
-import {
-	bold,
-	green,
-	outputError,
-	outputJson,
-	red,
-	resolveFormat,
-	yellow,
-} from "../core/output.js";
+import { outputError, outputJson, resolveFormat } from "../core/output.js";
 import type { OmniFocusClient } from "../core/types.js";
+import { bold, green, red, yellow } from "../core/ui/colors.js";
 
 export function registerStatsCommand(program: Command, client: OmniFocusClient): void {
 	program

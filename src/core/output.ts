@@ -4,62 +4,16 @@
  * Handles two modes:
  * - human: colored, tabular, designed for TTY
  * - json: raw JSON for piping/scripting
+ *
+ * This is the renderer layer: it knows OmniFocus entities and output
+ * formats. Terminal primitives (colors, interactivity detection, progress)
+ * live one level down in `./ui/` and know nothing about entities.
  */
 
 import { BridgeError, type CLIError } from "./errors.js";
 import { assignShortIds } from "./short-ids.js";
 import type { OFFolder, OFProject, OFProjectCompact, OFTask, OutputFormat } from "./types.js";
-
-// ── ANSI helpers ────────────────────────────────────────────────────────────
-
-const RESET = "\x1b[0m";
-const BOLD = "\x1b[1m";
-const DIM = "\x1b[2m";
-const RED = "\x1b[31m";
-const GREEN = "\x1b[32m";
-const YELLOW = "\x1b[33m";
-const BLUE = "\x1b[34m";
-const CYAN = "\x1b[36m";
-
-/**
- * Standard color conventions: NO_COLOR disables, FORCE_COLOR overrides,
- * otherwise color only when the target stream is a terminal. Checked per
- * call so tests (and long-lived processes) see env/TTY changes.
- */
-function colorEnabled(stream: NodeJS.WriteStream): boolean {
-	const noColor = process.env.NO_COLOR;
-	if (noColor !== undefined && noColor !== "") return false;
-	const forceColor = process.env.FORCE_COLOR;
-	if (forceColor !== undefined && forceColor !== "" && forceColor !== "0") return true;
-	return stream.isTTY === true;
-}
-
-function paint(code: string, s: string, stream: NodeJS.WriteStream = process.stdout): string {
-	return colorEnabled(stream) ? `${code}${s}${RESET}` : s;
-}
-
-// Content helpers are stdout-keyed: human-formatted content goes to stdout.
-function bold(s: string): string {
-	return paint(BOLD, s);
-}
-function dim(s: string): string {
-	return paint(DIM, s);
-}
-function red(s: string): string {
-	return paint(RED, s);
-}
-function green(s: string): string {
-	return paint(GREEN, s);
-}
-function yellow(s: string): string {
-	return paint(YELLOW, s);
-}
-function blue(s: string): string {
-	return paint(BLUE, s);
-}
-function cyan(s: string): string {
-	return paint(CYAN, s);
-}
+import { bold, cyan, dim, green, red, yellow } from "./ui/colors.js";
 
 // ── Format detection ────────────────────────────────────────────────────────
 
@@ -110,7 +64,7 @@ export function outputError(error: string | CLIError): void {
 			.filter((id): id is string => id != null);
 		text = error.format(candidateIds.length > 0 ? assignShortIds(candidateIds) : undefined);
 	}
-	console.error(`${paint(RED, "✗", process.stderr)} ${text}`);
+	console.error(`${red("✗", process.stderr)} ${text}`);
 }
 
 /**
@@ -122,7 +76,7 @@ export function outputWarning(message: string): void {
 		console.error(JSON.stringify({ warning: message }));
 		return;
 	}
-	console.error(`${paint(YELLOW, "!", process.stderr)} ${message}`);
+	console.error(`${yellow("!", process.stderr)} ${message}`);
 }
 
 /**
@@ -435,6 +389,3 @@ function formatDurationSeconds(totalSeconds: number): string {
 	if (seconds > 0 || parts.length === 0) parts.push(`${seconds}s`);
 	return `${sign}${parts.join("")}`;
 }
-
-// Re-export color helpers for use in specialized formatters (e.g., forecast)
-export { bold, dim, red, green, yellow, blue, cyan };

@@ -10,8 +10,9 @@ Path: @/src/commands
 ### How it fits into the larger codebase
 - This is the outermost layer of the application — nothing imports from `commands/`; it only imports from `@/src/core/`.
 - `@/src/index.ts` creates the Commander `program`, calls `createClient()`, then passes both into every `register*Commands()` function exported from this directory.
-- Each verb file depends on `OmniFocusClient` (from `@/src/core/types.ts`) for all OmniFocus operations, `unwrapBridgeResponse()` (from `@/src/core/client.ts`) to extract data from bridge results, `BridgeError` (from `@/src/core/errors.ts`) for error handling, and output helpers (from `@/src/core/output.ts`) for formatting.
+- Each verb file depends on `OmniFocusClient` (from `@/src/core/types.ts`) for all OmniFocus operations, `unwrapBridgeResponse()` (from `@/src/core/client.ts`) to extract data from bridge results, `BridgeError` (from `@/src/core/errors.ts`) for error handling, entity formatters/`outputJson`/`outputError`/`resolveFormat` from `@/src/core/output.ts`, and — where a formatter needs raw ANSI decoration (e.g. the forecast renderer) — color helpers imported directly from `@/src/core/ui/colors.ts`.
 - Commands never talk to the JXA bridge or OmniFocus directly — the client is the sole interface.
+- Commands are unaware of the progress spinner: `@/src/index.ts` wraps the client in `withProgress()` (`@/src/core/ui/progress.ts`) before it's ever passed into `buildProgram()`, so every command's `client.method()` calls transparently show/hide chrome without any command-level code.
 
 ### Core Implementation
 - **Registration pattern**: Each noun directory has an `index.ts` that creates a Commander subcommand (`program.command("task")`) and calls verb-level `register*Command(cmd, client)` functions to attach verbs under it. Standalone commands attach directly to the root program. Nested command trees (like task notifications) use the same pattern recursively.

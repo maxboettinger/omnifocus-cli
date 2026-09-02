@@ -1,17 +1,10 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
 import { BridgeError, ConfirmationRequiredError } from "../../core/errors.js";
-import {
-	dim,
-	green,
-	outputError,
-	outputJson,
-	outputSuccess,
-	red,
-	resolveFormat,
-} from "../../core/output.js";
+import { outputError, outputJson, outputSuccess, resolveFormat } from "../../core/output.js";
 import { readStdin } from "../../core/stdin.js";
 import type { InboxProcessOptions, OmniFocusClient } from "../../core/types.js";
+import { dim, green, red } from "../../core/ui/colors.js";
 
 interface BatchProcessResult {
 	ok: boolean;

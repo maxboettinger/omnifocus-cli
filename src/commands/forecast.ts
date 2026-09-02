@@ -2,21 +2,16 @@ import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../core/client.js";
 import { BridgeError } from "../core/errors.js";
 import {
-	bold,
-	cyan,
-	dim,
 	formatTaskLine,
-	green,
 	outputError,
 	outputJson,
-	red,
 	resolveFormat,
 	shortIdColumnWidth,
 	taskShortIds,
-	yellow,
 } from "../core/output.js";
 import { parseIntOption } from "../core/parsers.js";
 import type { OmniFocusClient } from "../core/types.js";
+import { bold, cyan, dim, green, red, yellow } from "../core/ui/colors.js";
 
 export function registerForecastCommand(program: Command, client: OmniFocusClient): void {
 	program

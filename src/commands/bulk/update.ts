@@ -1,17 +1,10 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
 import { BridgeError } from "../../core/errors.js";
-import {
-	dim,
-	green,
-	outputError,
-	outputJson,
-	outputSuccess,
-	red,
-	resolveFormat,
-} from "../../core/output.js";
+import { outputError, outputJson, outputSuccess, resolveFormat } from "../../core/output.js";
 import { readStdin } from "../../core/stdin.js";
 import type { BulkUpdateInput, OmniFocusClient } from "../../core/types.js";
+import { dim, green, red } from "../../core/ui/colors.js";
 
 export function registerBulkUpdateCommand(parent: Command, client: OmniFocusClient): void {
 	parent

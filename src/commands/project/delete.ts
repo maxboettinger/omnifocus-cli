@@ -1,8 +1,9 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../core/client.js";
 import { BridgeError, ConfirmationRequiredError } from "../../core/errors.js";
-import { bold, outputError, outputJson, outputSuccess, resolveFormat } from "../../core/output.js";
+import { outputError, outputJson, outputSuccess, resolveFormat } from "../../core/output.js";
 import type { OmniFocusClient } from "../../core/types.js";
+import { bold } from "../../core/ui/colors.js";
 
 export function registerDeleteCommand(parent: Command, client: OmniFocusClient): void {
 	parent

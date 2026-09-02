@@ -11,11 +11,11 @@ import {
 	outputError,
 	outputTaskList,
 	outputWarning,
-	red,
 	resolveFormat,
 } from "../../src/core/output.js";
 import { assignShortIds } from "../../src/core/short-ids.js";
 import type { OFProject, OFTask } from "../../src/core/types.js";
+import { withEnv, withStreamTTY } from "../helpers/env.js";
 
 // ── Test fixtures ───────────────────────────────────────────────────────────
 
@@ -214,34 +214,6 @@ describe("formatProjectDetail", () => {
 
 // ── Color handling & stderr structure ───────────────────────────────────────
 
-function withStreamTTY<T>(stream: NodeJS.WriteStream, isTTY: boolean | undefined, fn: () => T): T {
-	const original = Object.getOwnPropertyDescriptor(stream, "isTTY");
-	Object.defineProperty(stream, "isTTY", { value: isTTY, configurable: true });
-	try {
-		return fn();
-	} finally {
-		if (original) Object.defineProperty(stream, "isTTY", original);
-		else Reflect.deleteProperty(stream, "isTTY");
-	}
-}
-
-function withEnv<T>(env: Record<string, string | undefined>, fn: () => T): T {
-	const saved: Record<string, string | undefined> = {};
-	for (const [key, value] of Object.entries(env)) {
-		saved[key] = process.env[key];
-		if (value === undefined) Reflect.deleteProperty(process.env, key);
-		else process.env[key] = value;
-	}
-	try {
-		return fn();
-	} finally {
-		for (const [key, value] of Object.entries(saved)) {
-			if (value === undefined) Reflect.deleteProperty(process.env, key);
-			else process.env[key] = value;
-		}
-	}
-}
-
 function captureStderr(fn: () => void): string[] {
 	const lines: string[] = [];
 	const original = console.error;
@@ -255,31 +227,6 @@ function captureStderr(fn: () => void): string[] {
 	}
 	return lines;
 }
-
-describe("color conventions", () => {
-	test("stdout color helpers emit ANSI only when stdout is a TTY", () => {
-		withEnv({ NO_COLOR: undefined, FORCE_COLOR: undefined }, () => {
-			const colored = withStreamTTY(process.stdout, true, () => red("x"));
-			expect(colored).toContain("\x1b[31m");
-			const plain = withStreamTTY(process.stdout, undefined, () => red("x"));
-			expect(plain).toBe("x");
-		});
-	});
-
-	test("NO_COLOR disables color even on a TTY", () => {
-		withEnv({ NO_COLOR: "1", FORCE_COLOR: undefined }, () => {
-			const out = withStreamTTY(process.stdout, true, () => red("x"));
-			expect(out).toBe("x");
-		});
-	});
-
-	test("FORCE_COLOR enables color even when not a TTY", () => {
-		withEnv({ NO_COLOR: undefined, FORCE_COLOR: "1" }, () => {
-			const out = withStreamTTY(process.stdout, undefined, () => red("x"));
-			expect(out).toContain("\x1b[31m");
-		});
-	});
-});
 
 describe("outputError stderr structure", () => {
 	test("emits a structured JSON line when stderr is not a TTY", () => {

@@ -1,15 +1,10 @@
 import type { Command } from "commander";
 import { unwrapBridgeResponse } from "../../../core/client.js";
 import { BridgeError } from "../../../core/errors.js";
-import {
-	dim,
-	outputError,
-	outputJson,
-	outputSuccess,
-	resolveFormat,
-} from "../../../core/output.js";
+import { outputError, outputJson, outputSuccess, resolveFormat } from "../../../core/output.js";
 import { resolveTaskRef } from "../../../core/short-ids.js";
 import type { OFTaskNotification, OmniFocusClient } from "../../../core/types.js";
+import { dim } from "../../../core/ui/colors.js";
 
 export function registerListCommand(parent: Command, client: OmniFocusClient): void {
 	parent

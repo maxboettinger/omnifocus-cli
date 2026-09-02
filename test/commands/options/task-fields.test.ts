@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { Command } from "commander";
 import {
 	readTaskCreate,
 	readTaskDates,
@@ -24,12 +25,17 @@ describe("taskDateOptions", () => {
 		).toThrow();
 	});
 
-	test("clearable mode documents 'clear' in the help text", () => {
+	test("clearable mode accepts clear as a date value", () => {
+		let capturedCmd: Command | undefined;
 		const { opts } = parseCommand(
-			(cmd) => taskDateOptions(cmd, { clearable: true }),
+			(cmd) => {
+				capturedCmd = cmd;
+				taskDateOptions(cmd, { clearable: true });
+			},
 			["--due", "clear"],
 		);
 		expect(readTaskDates(opts).due).toBe("clear");
+		expect(capturedCmd?.helpInformation()).toContain("or clear to remove");
 	});
 });
 

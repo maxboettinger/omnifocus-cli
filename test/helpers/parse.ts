@@ -13,7 +13,7 @@ export interface ParsedInvocation {
 
 export function parseCommand(setup: (cmd: Command) => void, argv: string[]): ParsedInvocation {
 	let captured: ParsedInvocation = { args: [], opts: {} };
-	const cmd = new Command().exitOverride();
+	const cmd = new Command().exitOverride().configureOutput({ writeErr: () => {} });
 	setup(cmd);
 	cmd.action((...actionArgs: unknown[]) => {
 		actionArgs.pop(); // the Command itself

@@ -5,7 +5,7 @@
  * captures console.log/console.error into arrays, and stubs process.exit
  * so `exitCode` can be asserted instead of the process actually exiting.
  * `runCommandWithStdin` layers stdin piping on top for stdin-driven verbs
- * (bulk create/update/complete, inbox process-many).
+ * (bulk add/update/complete, inbox process-many).
  *
  * Integration test files import this rather than building their own copy.
  */

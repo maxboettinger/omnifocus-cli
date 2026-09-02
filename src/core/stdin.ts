@@ -1,6 +1,6 @@
 /**
  * Shared stdin reader for commands that take a JSON payload on stdin
- * (bulk create/update/complete, inbox process-many).
+ * (bulk add/update/complete, inbox process-many).
  */
 
 import { CLIError } from "./errors.js";
@@ -10,7 +10,7 @@ import { CLIError } from "./errors.js";
  * otherwise the command would hang forever waiting for input.
  *
  * @param example - Example invocation shown in the error, e.g.
- *   `echo '[{"name":"Task"}]' | of bulk create`
+ *   `echo '[{"name":"Task"}]' | of bulk add`
  */
 export async function readStdin(example: string): Promise<string> {
 	if (process.stdin.isTTY) {

@@ -10,8 +10,8 @@ export function registerUpdateCommand(parent: Command, client: OmniFocusClient):
 	const cmd = parent.command("update").description("Update a task");
 	taskRefArgument(cmd);
 	taskEditOptions(cmd)
-		.option("--complete", "Mark the task complete")
-		.option("--incomplete", "Mark the task incomplete");
+		.option("--complete", "Mark as complete")
+		.option("--incomplete", "Mark as incomplete");
 	cmd.action(
 		runAction(async (ctx, ref: string | undefined) => {
 			const data = unwrapBridgeResponse(

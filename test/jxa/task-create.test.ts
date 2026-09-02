@@ -113,6 +113,73 @@ describe("task.create", () => {
 		expect(data.parent).toEqual({ id: "p1", name: "Parent", project: "Errands" });
 		expect(pushed.length).toBe(1);
 	});
+
+	test("with project files the task into the project", () => {
+		const pushed: unknown[] = [];
+		const inbox: unknown[] = [];
+		const project = {
+			id: () => "proj-1",
+			name: () => "Errands",
+			tasks: { push: (t: unknown) => pushed.push(t) },
+		};
+		const doc = {
+			flattenedTasks: {
+				byId: (id: string) => {
+					throw new Error(`not found: ${id}`);
+				},
+			},
+			flattenedProjects: () => [project],
+			inboxTasks: { push: (t: unknown) => inbox.push(t) },
+		};
+
+		const response = runBridge(doc, "task.create", { name: "Milk", project: "Errands" });
+
+		expect(response.ok).toBe(true);
+		expect(pushed.length).toBe(1);
+		const data = response.data as { parent?: unknown };
+		expect(data.parent).toBeUndefined();
+		expect(inbox.length).toBe(0);
+	});
+
+	test("ambiguous parent name returns candidates", () => {
+		const parent1 = { id: () => "id1", name: () => "Parent", completed: () => false };
+		const parent2 = { id: () => "id2", name: () => "Parent", completed: () => false };
+		const doc = {
+			flattenedTasks: {
+				byId: (id: string) => {
+					throw new Error(`not found: ${id}`);
+				},
+				whose: (predicate: { name: string | { _contains: string } }) => {
+					const name = "parent";
+					const matches =
+						typeof predicate.name === "string"
+							? name === predicate.name.toLowerCase()
+							: name.includes(predicate.name._contains.toLowerCase());
+					return () => (matches ? [parent1, parent2] : []);
+				},
+			},
+			flattenedProjects: () => [],
+			inboxTasks: { push: () => {} },
+		};
+
+		const response = runBridge(doc, "task.create", { name: "x", parent: "Parent" });
+
+		expect(response.ok).toBe(false);
+		expect(response.error).toMatch(/Ambiguous/);
+		expect(response.candidates).toHaveLength(2);
+	});
+
+	test("removed ops no longer exist", () => {
+		const doc = docWithParent([], []);
+
+		const subtaskResponse = runBridge(doc, "task.subtask", { name: "x" });
+		expect(subtaskResponse.ok).toBe(false);
+		expect(subtaskResponse.error).toMatch(/Unknown operation/);
+
+		const inboxAddResponse = runBridge(doc, "inbox.add", { name: "x" });
+		expect(inboxAddResponse.ok).toBe(false);
+		expect(inboxAddResponse.error).toMatch(/Unknown operation/);
+	});
 });
 
 describe("bulk.create", () => {

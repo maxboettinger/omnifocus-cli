@@ -389,6 +389,18 @@ describe("project commands", () => {
 		expect(c.deleteProject).toHaveBeenCalledTimes(1);
 	});
 
+	test("project delete without --confirm exits 1 and never calls deleteProject", async () => {
+		const c = createMockClient();
+		const { stderr, exitCode } = await runCommand(
+			registerProjectCommands,
+			["project", "delete", "Old Project"],
+			c,
+		);
+		expect(c.deleteProject).not.toHaveBeenCalled();
+		expect(exitCode).toBe(1);
+		expect(stderr.some((line) => line.includes("requires --confirm"))).toBeTrue();
+	});
+
 	test("project show passes the query and --id to getProject", async () => {
 		const { client } = await runCommand(registerProjectCommands, [
 			"project",
@@ -468,6 +480,18 @@ describe("tag commands", () => {
 	test("tag tasks calls listTasksByTag", async () => {
 		const { client } = await runCommand(registerTagCommands, ["tag", "tasks", "errand", "--json"]);
 		expect(client.listTasksByTag).toHaveBeenCalledTimes(1);
+	});
+
+	test("tag delete without --confirm exits 1 and never calls deleteTag", async () => {
+		const c = createMockClient();
+		const { stderr, exitCode } = await runCommand(
+			registerTagCommands,
+			["tag", "delete", "urgent"],
+			c,
+		);
+		expect(c.deleteTag).not.toHaveBeenCalled();
+		expect(exitCode).toBe(1);
+		expect(stderr.some((line) => line.includes("requires --confirm"))).toBeTrue();
 	});
 });
 
@@ -1251,7 +1275,7 @@ describe("bulk commands", () => {
 		expect(exitCode).toBe(1);
 	});
 
-	test("bulk create no longer exists", async () => {
+	test("the removed 'create' subcommand under bulk no longer exists", async () => {
 		await expect(runCommand(registerBulkCommands, ["bulk", "create"])).rejects.toThrow();
 	});
 });

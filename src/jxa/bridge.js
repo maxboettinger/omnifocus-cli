@@ -595,21 +595,42 @@ var ops = {};
 
 // ── Task operations ─────────────────────────────────────────────────────
 
-ops["task.create"] = function(of, doc, p) {
-    if (!p.name) return fail("Task name required");
-    var task;
-    if (p.project) {
+// Build one task from a parameter bag. Shared by task.create and bulk.create.
+// Returns { data } on success or { error, candidates } on failure.
+function createTaskRecord(of, doc, p) {
+    if (!p.name) return { error: "Task name required" };
+    if (p.project && (p.parent || p.parentId)) return { error: "Use either project or parent, not both" };
+    var parentTask = null, project = null;
+    if (p.parentId) {
+        parentTask = findTaskById(doc, p.parentId);
+        if (!parentTask) return { error: "Parent task not found by ID: " + p.parentId };
+    } else if (p.parent) {
+        var r = findTaskByQuery(doc, p.parent);
+        if (r.error) return { error: r.error, candidates: r.candidates };
+        parentTask = r.task;
+    } else if (p.project) {
         var pl = findExistingProject(doc, p.project);
-        if (pl.error) return fail(pl.error, pl.candidates ? { candidates: pl.candidates } : {});
-        var tp = { name: p.name }; if (p.note) tp.note = p.note;
-        task = of.Task(tp); pl.project.tasks.push(task);
-    } else {
-        var tp = { name: p.name }; if (p.note) tp.note = p.note;
-        task = of.InboxTask(tp); doc.inboxTasks.push(task);
+        if (pl.error) return { error: pl.error, candidates: pl.candidates };
+        project = pl.project;
     }
+    var tp = { name: p.name }; if (p.note) tp.note = p.note;
+    var task;
+    if (parentTask) { task = of.Task(tp); parentTask.tasks.push(task); }
+    else if (project) { task = of.Task(tp); project.tasks.push(task); }
+    else { task = of.InboxTask(tp); doc.inboxTasks.push(task); }
     var changes = applyTaskProps(of, doc, task, p);
-    var warnings = extractWarnings(changes);
-    return ok({ id: task.id(), name: task.name(), task: formatTask(task), changes: changes, warnings: warnings });
+    var data = { id: task.id(), name: task.name(), task: formatTask(task), changes: changes, warnings: extractWarnings(changes) };
+    if (parentTask) {
+        var pp = null; try { var ppp = parentTask.containingProject(); if (ppp) pp = ppp.name(); } catch(e) {}
+        data.parent = { id: parentTask.id(), name: parentTask.name(), project: pp || "Inbox" };
+    }
+    return { data: data };
+}
+
+ops["task.create"] = function(of, doc, p) {
+    var r = createTaskRecord(of, doc, p);
+    if (r.error) return fail(r.error, r.candidates ? { candidates: r.candidates } : {});
+    return ok(r.data);
 };
 
 ops["task.get"] = function(of, doc, p) {
@@ -1560,20 +1581,10 @@ ops["bulk.create"] = function(of, doc, p) {
     for (var i = 0; i < p.tasks.length; i++) {
         var input = p.tasks[i];
         try {
-            if (!input.name) { results.push({ ok: false, error: "Task name required" }); continue; }
-            var targetProject = null;
-            if (input.project) {
-                var pl = findExistingProject(doc, input.project);
-                if (pl.error) { results.push({ ok: false, error: pl.error, name: input.name }); continue; }
-                targetProject = pl.project;
-            }
-            var tp = { name: input.name }; if (input.note) tp.note = input.note;
-            var task;
-            if (targetProject) { task = of.Task(tp); targetProject.tasks.push(task); }
-            else { task = of.InboxTask(tp); doc.inboxTasks.push(task); }
-            var changes = applyTaskProps(of, doc, task, input);
-            var warnings = extractWarnings(changes);
-            results.push({ ok: true, id: task.id(), name: task.name(), task: formatTask(task), changes: changes, warnings: warnings });
+            var r = createTaskRecord(of, doc, input);
+            if (r.error) { results.push({ ok: false, error: r.error, name: input.name }); continue; }
+            var item = r.data; item.ok = true;
+            results.push(item);
         } catch(e) { results.push({ ok: false, error: e.message, name: input.name }); }
     }
     return ok(results);

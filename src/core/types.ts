@@ -146,7 +146,12 @@ export interface TaskCreateOptions {
 	tags?: string[];
 	flag?: boolean;
 	estimate?: number;
+	/** Create inside this project. Mutually exclusive with parent/parentId. */
 	project?: string;
+	/** Create as a subtask of this task (short id, name or OmniFocus id). */
+	parent?: string;
+	/** Create as a subtask of this task id. */
+	parentId?: string;
 	sequential?: boolean;
 	repeat?: string;
 	repeatMethod?: string;
@@ -481,6 +486,7 @@ export interface OmniFocusClient {
 			id: string;
 			name: string;
 			task: OFTask;
+			parent?: { id: string; name: string; project: string };
 			changes?: string[];
 			warnings?: string[];
 		}>

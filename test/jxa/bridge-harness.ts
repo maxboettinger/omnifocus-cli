@@ -112,7 +112,16 @@ export function runBridgeArgs(
 	stdinContent?: string | null,
 	opts?: RunBridgeOptions,
 ): BridgeResponse {
+	let created = 0;
+	// OmniFocus constructors: `of.Task({...})`, `of.InboxTask({...})`. Each
+	// returns a mutable object with a fresh id so ops that create records can
+	// be exercised without a real document.
+	const construct = (props: Record<string, unknown>) =>
+		makeMutableJxaObject({ id: `new-${++created}`, completed: false, flagged: false, ...props });
 	const app = {
+		Task: construct,
+		InboxTask: construct,
+		RepetitionRule: (props: Record<string, unknown>) => props,
 		includeStandardAdditions: false,
 		defaultDocument: doc,
 		delete: () => undefined,

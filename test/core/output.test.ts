@@ -17,7 +17,7 @@ import {
 	outputWarnings,
 	resolveFormat,
 } from "../../src/core/output.js";
-import { assignShortIds } from "../../src/core/short-ids.js";
+import { assignShortIds, peekShortId } from "../../src/core/short-ids.js";
 import type { OFProject, OFTask } from "../../src/core/types.js";
 import { withEnv, withStreamTTY } from "../helpers/env.js";
 
@@ -437,6 +437,18 @@ describe("outputEntityAction", () => {
 	test("capitalises the action and appends an existing short id", () => {
 		const { out } = capture(() => outputEntityAction("deleted", "Buy milk"));
 		expect(out).toEqual(["✓ Deleted: Buy milk"]);
+	});
+
+	test("looks up and appends the short id for a minted alias", () => {
+		const shortId = assignShortIds(["of-id-1"]).get("of-id-1");
+		const { out } = capture(() => outputEntityAction("completed", "Task A", "of-id-1"));
+		expect(out).toEqual([`✓ Completed: Task A (${shortId})`]);
+	});
+
+	test("omits the suffix and mints nothing for an id never seen before", () => {
+		const { out } = capture(() => outputEntityAction("deleted", "Task B", "never-seen-id"));
+		expect(out).toEqual(["✓ Deleted: Task B"]);
+		expect(peekShortId("never-seen-id")).toBeUndefined();
 	});
 });
 

@@ -10,8 +10,7 @@ import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Readable } from "node:stream";
-import { Command } from "commander";
+import type { Command } from "commander";
 import { registerCollectCommand } from "../../src/commands/collect.js";
 import { registerCompletionCommand } from "../../src/commands/completion.js";
 import { registerFolderCommands } from "../../src/commands/folder/index.js";
@@ -25,59 +24,7 @@ import { assignShortIds } from "../../src/core/short-ids.js";
 import type { OmniFocusClient } from "../../src/core/types.js";
 import { createMockClient } from "../fixtures/mock-client.js";
 import { MOCK_TASK, successResponse } from "../fixtures/mock-responses.js";
-
-// ── Helper: run a command and capture output ────────────────────────────────
-
-async function runCommand(
-	setup: (program: Command, client: OmniFocusClient) => void,
-	argv: string[],
-	client?: OmniFocusClient,
-): Promise<{ client: OmniFocusClient; stdout: string[]; stderr: string[] }> {
-	const c = client ?? createMockClient();
-	const program = new Command();
-	program.name("of").exitOverride();
-	setup(program, c);
-
-	const stdout: string[] = [];
-	const stderr: string[] = [];
-	const origLog = console.log;
-	const origErr = console.error;
-	console.log = (...args: unknown[]) => {
-		stdout.push(args.map(String).join(" "));
-	};
-	console.error = (...args: unknown[]) => {
-		stderr.push(args.map(String).join(" "));
-	};
-	try {
-		await program.parseAsync(argv, { from: "user" });
-	} finally {
-		console.log = origLog;
-		console.error = origErr;
-	}
-	return { client: c, stdout, stderr };
-}
-
-async function runCommandWithStdin(
-	setup: (program: Command, client: OmniFocusClient) => void,
-	argv: string[],
-	stdinInput: string,
-	client?: OmniFocusClient,
-): Promise<{ client: OmniFocusClient; stdout: string[]; stderr: string[] }> {
-	const originalStdin = process.stdin;
-	const mockStdin = Readable.from([Buffer.from(stdinInput)]);
-	Object.defineProperty(process, "stdin", {
-		value: mockStdin,
-		configurable: true,
-	});
-	try {
-		return await runCommand(setup, argv, client);
-	} finally {
-		Object.defineProperty(process, "stdin", {
-			value: originalStdin,
-			configurable: true,
-		});
-	}
-}
+import { runCommand, runCommandWithStdin } from "../helpers/run.js";
 
 // ── Task commands ───────────────────────────────────────────────────────────
 
@@ -270,71 +217,44 @@ describe("task commands", () => {
 
 	test("task notification add validates kind-specific required fields", async () => {
 		const c = createMockClient();
-		const origExit = process.exit;
-		let exitCode: number | undefined;
-		process.exit = ((code?: number) => {
-			exitCode = code;
-		}) as never;
-		try {
-			await runCommand(
-				registerTaskCommands,
-				["task", "notification", "add", "--kind", "absolute", "--json"],
-				c,
-			);
-			expect(c.addTaskNotification).not.toHaveBeenCalled();
-			expect(exitCode).toBe(1);
-		} finally {
-			process.exit = origExit;
-		}
+		const { exitCode } = await runCommand(
+			registerTaskCommands,
+			["task", "notification", "add", "--kind", "absolute", "--json"],
+			c,
+		);
+		expect(c.addTaskNotification).not.toHaveBeenCalled();
+		expect(exitCode).toBe(1);
 	});
 
 	test("task notification clear requires --confirm", async () => {
 		const c = createMockClient();
-		const origExit = process.exit;
-		let exitCode: number | undefined;
-		process.exit = ((code?: number) => {
-			exitCode = code;
-		}) as never;
-		try {
-			await runCommand(
-				registerTaskCommands,
-				["task", "notification", "clear", "--id", "task-abc123", "--json"],
-				c,
-			);
-			expect(c.clearTaskNotifications).not.toHaveBeenCalled();
-			expect(exitCode).toBe(1);
-		} finally {
-			process.exit = origExit;
-		}
+		const { exitCode } = await runCommand(
+			registerTaskCommands,
+			["task", "notification", "clear", "--id", "task-abc123", "--json"],
+			c,
+		);
+		expect(c.clearTaskNotifications).not.toHaveBeenCalled();
+		expect(exitCode).toBe(1);
 	});
 
 	test("task notification update requires at least one mutation flag", async () => {
 		const c = createMockClient();
-		const origExit = process.exit;
-		let exitCode: number | undefined;
-		process.exit = ((code?: number) => {
-			exitCode = code;
-		}) as never;
-		try {
-			await runCommand(
-				registerTaskCommands,
-				[
-					"task",
-					"notification",
-					"update",
-					"--id",
-					"task-abc123",
-					"--notification-id",
-					"notif-1",
-					"--json",
-				],
-				c,
-			);
-			expect(c.updateTaskNotification).not.toHaveBeenCalled();
-			expect(exitCode).toBe(1);
-		} finally {
-			process.exit = origExit;
-		}
+		const { exitCode } = await runCommand(
+			registerTaskCommands,
+			[
+				"task",
+				"notification",
+				"update",
+				"--id",
+				"task-abc123",
+				"--notification-id",
+				"notif-1",
+				"--json",
+			],
+			c,
+		);
+		expect(c.updateTaskNotification).not.toHaveBeenCalled();
+		expect(exitCode).toBe(1);
 	});
 
 	test("task update with --id calls updateTask", async () => {
@@ -564,23 +484,14 @@ describe("inbox commands", () => {
 
 	test("inbox process --delete without --confirm exits with error", async () => {
 		const c = createMockClient();
-		const origExit = process.exit;
-		let exitCode: number | undefined;
-		process.exit = ((code?: number) => {
-			exitCode = code;
-		}) as never;
-		try {
-			const { stderr } = await runCommand(
-				registerInboxCommands,
-				["inbox", "process", "inbox-1", "--delete"],
-				c,
-			);
-			expect(c.processInbox).not.toHaveBeenCalled();
-			expect(exitCode).toBe(1);
-			expect(stderr.some((line) => line.includes("--confirm"))).toBeTrue();
-		} finally {
-			process.exit = origExit;
-		}
+		const { stderr, exitCode } = await runCommand(
+			registerInboxCommands,
+			["inbox", "process", "inbox-1", "--delete"],
+			c,
+		);
+		expect(c.processInbox).not.toHaveBeenCalled();
+		expect(exitCode).toBe(1);
+		expect(stderr.some((line) => line.includes("--confirm"))).toBeTrue();
 	});
 
 	test("inbox process --delete --confirm calls processInbox with confirm: true", async () => {
@@ -617,27 +528,18 @@ describe("inbox commands", () => {
 
 	test("inbox process-many with delete item and no --confirm exits with error", async () => {
 		const c = createMockClient();
-		const origExit = process.exit;
-		let exitCode: number | undefined;
-		process.exit = ((code?: number) => {
-			exitCode = code;
-		}) as never;
-		try {
-			const { stderr } = await runCommandWithStdin(
-				registerInboxCommands,
-				["inbox", "process-many"],
-				JSON.stringify([
-					{ id: "inbox-1", project: "Errands" },
-					{ id: "inbox-2", delete: true },
-				]),
-				c,
-			);
-			expect(c.processInbox).not.toHaveBeenCalled();
-			expect(exitCode).toBe(1);
-			expect(stderr.some((line) => line.includes("--confirm"))).toBeTrue();
-		} finally {
-			process.exit = origExit;
-		}
+		const { stderr, exitCode } = await runCommandWithStdin(
+			registerInboxCommands,
+			["inbox", "process-many"],
+			JSON.stringify([
+				{ id: "inbox-1", project: "Errands" },
+				{ id: "inbox-2", delete: true },
+			]),
+			c,
+		);
+		expect(c.processInbox).not.toHaveBeenCalled();
+		expect(exitCode).toBe(1);
+		expect(stderr.some((line) => line.includes("--confirm"))).toBeTrue();
 	});
 
 	test("inbox process-many with delete item and --confirm processes items", async () => {
@@ -664,24 +566,15 @@ describe("inbox commands", () => {
 
 	test("inbox process-many stdin delete:1 with confirm:true bypass attempt is blocked without --confirm", async () => {
 		const c = createMockClient();
-		const origExit = process.exit;
-		let exitCode: number | undefined;
-		process.exit = ((code?: number) => {
-			exitCode = code;
-		}) as never;
-		try {
-			const { stderr } = await runCommandWithStdin(
-				registerInboxCommands,
-				["inbox", "process-many"],
-				JSON.stringify([{ id: "x", delete: 1, confirm: true }]),
-				c,
-			);
-			expect(c.processInbox).not.toHaveBeenCalled();
-			expect(exitCode).toBe(1);
-			expect(stderr.some((line) => line.includes("--confirm"))).toBeTrue();
-		} finally {
-			process.exit = origExit;
-		}
+		const { stderr, exitCode } = await runCommandWithStdin(
+			registerInboxCommands,
+			["inbox", "process-many"],
+			JSON.stringify([{ id: "x", delete: 1, confirm: true }]),
+			c,
+		);
+		expect(c.processInbox).not.toHaveBeenCalled();
+		expect(exitCode).toBe(1);
+		expect(stderr.some((line) => line.includes("--confirm"))).toBeTrue();
 	});
 
 	test("inbox process-many strips stdin-supplied confirm when --confirm is not passed", async () => {
@@ -908,23 +801,14 @@ describe("task delete command", () => {
 
 	test("task delete without --confirm exits with error", async () => {
 		const c = createMockClient();
-		const origExit = process.exit;
-		let exitCode: number | undefined;
-		process.exit = ((code?: number) => {
-			exitCode = code;
-		}) as never;
-		try {
-			const { stderr } = await runCommand(
-				registerTaskCommands,
-				["task", "delete", "Buy groceries"],
-				c,
-			);
-			expect(c.deleteTask).not.toHaveBeenCalled();
-			expect(exitCode).toBe(1);
-			expect(stderr.some((line) => line.includes("--confirm"))).toBeTrue();
-		} finally {
-			process.exit = origExit;
-		}
+		const { stderr, exitCode } = await runCommand(
+			registerTaskCommands,
+			["task", "delete", "Buy groceries"],
+			c,
+		);
+		expect(c.deleteTask).not.toHaveBeenCalled();
+		expect(exitCode).toBe(1);
+		expect(stderr.some((line) => line.includes("--confirm"))).toBeTrue();
 	});
 });
 

@@ -7,9 +7,11 @@
  * process.exit so commands that exit non-zero can be asserted on.
  */
 
+import { Readable } from "node:stream";
 import { Command } from "commander";
 import type { OmniFocusClient } from "../../src/core/types.js";
 import { createMockClient } from "../fixtures/mock-client.js";
+import { withStdin } from "./env.js";
 
 export interface RunResult {
 	client: OmniFocusClient;
@@ -25,7 +27,8 @@ export async function runCommand(
 ): Promise<RunResult> {
 	const c = client ?? createMockClient();
 	const program = new Command();
-	program.name("of").exitOverride();
+	// Mirror the real program: --json is a root option only (src/program.ts).
+	program.name("of").option("--json", "Output in JSON format").exitOverride();
 	setup(program, c);
 
 	const stdout: string[] = [];
@@ -51,4 +54,14 @@ export async function runCommand(
 		process.exit = origExit;
 	}
 	return { client: c, stdout, stderr, exitCode };
+}
+
+/** `runCommand` with `stdinText` piped in as the command's stdin. */
+export function runCommandWithStdin(
+	setup: (program: Command, client: OmniFocusClient) => void,
+	argv: string[],
+	stdinText: string,
+	client?: OmniFocusClient,
+): Promise<RunResult> {
+	return withStdin(Readable.from([Buffer.from(stdinText)]), () => runCommand(setup, argv, client));
 }

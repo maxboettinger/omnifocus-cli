@@ -4,32 +4,18 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { Command } from "commander";
+import type { Command } from "commander";
 import { registerBulkCommands } from "../../src/commands/bulk/index.js";
 import { registerInboxCommands } from "../../src/commands/inbox/index.js";
 import type { OmniFocusClient } from "../../src/core/types.js";
-import { createMockClient } from "../fixtures/mock-client.js";
+import { withStdin } from "../helpers/env.js";
+import { runCommand } from "../helpers/run.js";
 
-async function runWithTtyStdin(
+function runWithTtyStdin(
 	setup: (program: Command, client: OmniFocusClient) => void,
 	argv: string[],
-): Promise<unknown> {
-	const originalStdin = process.stdin;
-	Object.defineProperty(process, "stdin", {
-		value: { isTTY: true },
-		configurable: true,
-	});
-	try {
-		const program = new Command();
-		program.name("of").exitOverride();
-		setup(program, createMockClient());
-		return await program.parseAsync(argv, { from: "user" });
-	} finally {
-		Object.defineProperty(process, "stdin", {
-			value: originalStdin,
-			configurable: true,
-		});
-	}
+) {
+	return withStdin({ isTTY: true }, () => runCommand(setup, argv));
 }
 
 describe("stdin TTY guard", () => {

@@ -53,6 +53,32 @@ Commands follow a noun-verb pattern: `of <noun> <verb> [args] [options]`
 
 All commands support `--json` for machine-readable output. When stdout is piped (not a TTY), JSON is the default.
 
+### Short task IDs
+
+Every task shown in a human-readable listing (`task list`, `task search`, `task show`,
+`forecast`, `collect`) is prefixed with a small number:
+
+```
+$ of task list
+ 42  ⚑ Buy milk [Errands] due:2026-09-01
+127  Call the dentist [Health]
+```
+
+Any command that takes a task reference accepts that number in place of a name or the
+full OmniFocus ID:
+
+```bash
+of task complete 42
+of task update 42 --due 2026-04-01
+of task delete 127 --confirm
+```
+
+A number always refers to the same task once assigned, and numbers are never reused — a
+stale or pruned number resolves to "not found" rather than a different task. Numbers are
+cached at `~/.cache/omnifocus-cli/short-ids.json` (override with `$XDG_CACHE_HOME` or
+`$OF_SHORT_ID_CACHE`). This is purely a human-mode convenience: `--json` output and piped
+output always carry the real OmniFocus ID, never the short number.
+
 ### Scripting contract
 
 Built for both humans and scripts/agents:

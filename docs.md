@@ -73,6 +73,7 @@ src/
 │   ├── bridge.ts               # osascript executor, JSON protocol handler
 │   ├── client.ts               # OmniFocusClient implementation
 │   ├── output.ts               # Formatters for human/JSON output
+│   ├── short-ids.ts            # Persistent numeric alias cache (human-mode only)
 │   └── stdin.ts                # Shared TTY-guarded stdin reader (bulk/process-many)
 └── jxa/
     └── bridge.js               # Unified JXA script (~1150 lines, all OmniFocus ops)
@@ -129,6 +130,8 @@ Operations: `task.create`, `task.get`, `task.update`, `task.complete`, `task.del
 **Task notifications use Omni Automation via the bridge.** Notification CRUD is implemented through OmniFocus `evaluate javascript` calls (`Task.Notification`) behind bridge ops. `task show` always includes notifications; `task list` includes them only for JSON output.
 
 **Known first-run failures get translated into actionable guidance.** Two conditions a first-time user is likely to hit — Apple Events authorization denial (macOS error -1743) and OmniFocus not being installed/openable — are pattern-matched (`matchKnownBridgeFailure()` in `@/src/core/errors.ts`) and rewritten into guidance pointing at System Settings → Privacy & Security → Automation, or an install link, instead of surfacing raw osascript stderr. See `@/src/core/docs.md` for the call sites.
+
+**Every human-mode task listing shows a short numeric alias.** `@/src/core/short-ids.ts` caches a monotonic `OmniFocus id → number` map on disk so a number seen in one command (`of task list`) stays valid for a later one (`of task complete 42`). This is human-mode-only decoration — JSON output and the bridge protocol are untouched, and only `@/src/commands/` and `@/src/core/output.ts` know the cache exists. See `@/src/core/docs.md` for the mechanism.
 
 ### Development
 

@@ -7,7 +7,14 @@
 
 import { mock } from "bun:test";
 import type { OmniFocusClient } from "../../src/core/types.js";
-import { MOCK_PROJECT, MOCK_STATS, MOCK_TASK, successResponse } from "./mock-responses.js";
+import {
+	MOCK_CREATE_TREE_RESULT,
+	MOCK_PROJECT,
+	MOCK_STATS,
+	MOCK_TASK,
+	MOCK_TASK_CONTEXT,
+	successResponse,
+} from "./mock-responses.js";
 
 export function createMockClient(): OmniFocusClient {
 	const mockNotification = (MOCK_TASK.notifications ?? [])[0] ?? {
@@ -58,6 +65,8 @@ export function createMockClient(): OmniFocusClient {
 				successResponse({ id: MOCK_TASK.id, name: MOCK_TASK.name, action: "deleted" }),
 			),
 		),
+		getTaskContext: mock(() => Promise.resolve(successResponse(MOCK_TASK_CONTEXT))),
+		createTaskTree: mock(() => Promise.resolve(successResponse(MOCK_CREATE_TREE_RESULT))),
 		listTaskNotifications: mock(() =>
 			Promise.resolve(
 				successResponse({

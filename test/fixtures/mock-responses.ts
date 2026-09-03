@@ -3,7 +3,14 @@
  * These match the shapes returned by bridge.js.
  */
 
-import type { BridgeResponse, OFProject, OFTask, StatsResult } from "../../src/core/types.js";
+import type {
+	BridgeResponse,
+	CreateTreeResult,
+	OFProject,
+	OFTask,
+	StatsResult,
+	TaskContext,
+} from "../../src/core/types.js";
 
 export const MOCK_TASK: OFTask = {
 	name: "Buy groceries",
@@ -98,3 +105,33 @@ export function successResponse<T>(data: T): BridgeResponse<T> {
 export function errorResponse(error: string, candidates?: string[]): BridgeResponse<never> {
 	return { ok: false, error, candidates };
 }
+
+export const MOCK_TASK_CONTEXT: TaskContext = {
+	task: MOCK_TASK,
+	ancestors: [],
+	project: MOCK_PROJECT,
+	children: [
+		{
+			...MOCK_TASK,
+			id: "task-child-1",
+			name: "Write shopping list",
+			completed: true,
+			completionDate: "2026-03-01T10:00:00.000Z",
+			tags: [],
+			flagged: false,
+			estimatedMinutes: 5,
+			children: [],
+		},
+	],
+	siblings: [{ id: "task-sib-1", name: "Return library books", completed: false }],
+	tags: ["errand", "home", "@computer"],
+};
+
+export const MOCK_CREATE_TREE_RESULT: CreateTreeResult = {
+	parent: { id: MOCK_TASK.id, name: MOCK_TASK.name, project: MOCK_TASK.project },
+	created: [
+		{ key: "1", ok: true, id: "new-1", name: "Open the shopping list app", warnings: [] },
+		{ key: "2", ok: true, id: "new-2", name: "Add milk and eggs", warnings: [] },
+	],
+	warnings: [],
+};

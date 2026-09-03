@@ -6,19 +6,9 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
-## [0.1.1] - 2026-09-03
+## [0.2.0] - 2026-09-03
 
 ### Added
-
-- Status cues in human output: completed (`✓`), dropped (`⊘`), blocked (`‖`) and deferred
-  (`→`) tasks are marked with a glyph, and finished ones have their name dimmed and struck
-  through. Active items render exactly as before. `task show` states the status on its own
-  line under the name, marking one held only through the project or parent as
-  `(inherited)`; `project list`/`project show` carry the same glyphs (on hold → `‖`). The
-  glyph rather than the color carries the meaning, so the cue survives `NO_COLOR`.
-- Task records now report `dropped`, `effectivelyCompleted` and `effectivelyDropped`. A task
-  inside a done or dropped project keeps its own flags false, so until now it listed as if
-  it were still actionable — in `--json` too.
 
 - AI features through [OpenRouter](https://openrouter.ai/) (`OPENROUTER_API_KEY`, optional
   `~/.config/omnifocus-cli/config.json` with `ai.apiKey`/`ai.model`, `--model` per run,
@@ -35,7 +25,15 @@ All notable changes to this project are documented here. The format follows
 - System prompts are Markdown files in `src/prompts/`, embedded in the binary and
   overridable per user via `~/.config/omnifocus-cli/prompts/<name>.md` or `$OF_PROMPTS_DIR`.
 - Bridge ops `task.context` and `task.createTree` (also accepts a `projectId` target).
-
+- Status cues in human output: completed (`✓`), dropped (`⊘`), blocked (`‖`) and deferred
+  (`→`) tasks are marked with a glyph, and finished ones have their name dimmed and struck
+  through. Active items render exactly as before. `task show` states the status on its own
+  line under the name, marking one held only through the project or parent as
+  `(inherited)`; `project list`/`project show` carry the same glyphs (on hold → `‖`). The
+  glyph rather than the color carries the meaning, so the cue survives `NO_COLOR`.
+- Task records now report `dropped`, `effectivelyCompleted` and `effectivelyDropped`. A task
+  inside a done or dropped project keeps its own flags false, so until now it listed as if
+  it were still actionable — in `--json` too.
 - `of fc` as a shortcut for `of forecast`. Standalone root commands can now carry a short
   alias of their own; `fc` rather than `f` because `f` is the `folder` noun.
 - `task search --id <id>` looks a single task up by id instead of by keyword, accepting
@@ -77,6 +75,6 @@ First public release of `of`, a command-line interface for OmniFocus on macOS.
 - Confirmation guard (`--confirm`) on every destructive verb.
 - Actionable errors for missing Automation permission and a missing OmniFocus app.
 
-[Unreleased]: https://github.com/maxboettinger/omnifocus-cli/compare/v0.1.1...HEAD
-[0.1.1]: https://github.com/maxboettinger/omnifocus-cli/compare/v0.1.0...v0.1.1
+[Unreleased]: https://github.com/maxboettinger/omnifocus-cli/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/maxboettinger/omnifocus-cli/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/maxboettinger/omnifocus-cli/releases/tag/v0.1.0

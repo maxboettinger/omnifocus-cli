@@ -172,12 +172,12 @@ export function formatTaskLine(task: OFTask, display: ShortIdDisplay = {}): stri
 
 	// Project (if not Inbox)
 	if (task.project && task.project !== "Inbox") {
-		parts.push(dim(`[${task.project}]`));
+		parts.push(dim(task.project));
 	}
 
 	// Tags
 	if (task.tags.length > 0) {
-		parts.push(cyan(task.tags.join(", ")));
+		parts.push(cyan(`[${task.tags.join(", ")}]`));
 	}
 
 	// Due date

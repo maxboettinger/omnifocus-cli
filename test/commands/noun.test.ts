@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Command } from "commander";
 import { defineNoun } from "../../src/commands/noun.js";
+import { createFakeAI } from "../fixtures/fake-ai.js";
 import { createMockClient } from "../fixtures/mock-client.js";
 
 describe("defineNoun", () => {
@@ -18,7 +19,7 @@ describe("defineNoun", () => {
 			],
 		});
 		const program = new Command();
-		register(program, createMockClient());
+		register(program, createMockClient(), createFakeAI());
 		const noun = program.commands.find((c) => c.name() === "widget");
 		expect(noun?.aliases()).toEqual(["w"]);
 		expect(noun?.description()).toBe("Manage widgets");
@@ -28,7 +29,11 @@ describe("defineNoun", () => {
 
 	test("nested nouns need no alias", () => {
 		const program = new Command();
-		defineNoun({ name: "inner", description: "d", verbs: [] })(program, createMockClient());
+		defineNoun({ name: "inner", description: "d", verbs: [] })(
+			program,
+			createMockClient(),
+			createFakeAI(),
+		);
 		expect(program.commands[0]?.aliases()).toEqual([]);
 	});
 
@@ -40,7 +45,7 @@ describe("defineNoun", () => {
 
 	function build(spec: Parameters<typeof defineNoun>[0]): Command {
 		const program = new Command();
-		defineNoun(spec)(program, createMockClient());
+		defineNoun(spec)(program, createMockClient(), createFakeAI());
 		return program.commands[0] as Command;
 	}
 

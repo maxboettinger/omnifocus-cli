@@ -18,11 +18,18 @@ import { registerReviewCommand } from "./commands/review.js";
 import { registerStatsCommand } from "./commands/stats.js";
 import { registerTagCommands } from "./commands/tag/index.js";
 import { registerTaskCommands } from "./commands/task/index.js";
+import { createAIClient } from "./core/ai/client.js";
+import type { AIClient } from "./core/ai/types.js";
 import { resolveFormat } from "./core/output.js";
 import type { OmniFocusClient } from "./core/types.js";
 import { setProgressEnabled } from "./core/ui/progress.js";
 
-export function buildProgram(client: OmniFocusClient): Command {
+/**
+ * @param client - the OmniFocus seam (real or mock)
+ * @param ai - the model seam; defaults to the lazy OpenRouter client, which
+ *   costs nothing until a verb calls it. Tests pass a scripted fake.
+ */
+export function buildProgram(client: OmniFocusClient, ai: AIClient = createAIClient()): Command {
 	const program = new Command();
 
 	program
@@ -39,12 +46,12 @@ export function buildProgram(client: OmniFocusClient): Command {
 		setProgressEnabled(resolveFormat(json) === "human");
 	});
 
-	registerTaskCommands(program, client);
-	registerProjectCommands(program, client);
-	registerTagCommands(program, client);
-	registerFolderCommands(program, client);
-	registerInboxCommands(program, client);
-	registerBulkCommands(program, client);
+	registerTaskCommands(program, client, ai);
+	registerProjectCommands(program, client, ai);
+	registerTagCommands(program, client, ai);
+	registerFolderCommands(program, client, ai);
+	registerInboxCommands(program, client, ai);
+	registerBulkCommands(program, client, ai);
 	registerForecastCommand(program, client);
 	registerReviewCommand(program, client);
 	registerStatsCommand(program, client);

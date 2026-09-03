@@ -101,14 +101,15 @@ describe("formatTaskLine", () => {
 		expect(line).toContain("Buy groceries");
 	});
 
-	test("includes project in brackets for non-inbox tasks", () => {
+	test("includes project without brackets for non-inbox tasks", () => {
 		const line = formatTaskLine(makeTask({ project: "Work" }));
-		expect(line).toContain("[Work]");
+		expect(line).toContain("Work");
+		expect(line).not.toContain("[Work]");
 	});
 
 	test("omits project for inbox tasks", () => {
 		const line = formatTaskLine(makeTask({ project: "Inbox" }));
-		expect(line).not.toContain("[Inbox]");
+		expect(line).not.toContain("Inbox");
 	});
 
 	test("shows flag indicator when flagged", () => {
@@ -116,10 +117,9 @@ describe("formatTaskLine", () => {
 		expect(line).toContain("⚑");
 	});
 
-	test("includes tags", () => {
+	test("wraps tags in brackets", () => {
 		const line = formatTaskLine(makeTask({ tags: ["errand", "urgent"] }));
-		expect(line).toContain("errand");
-		expect(line).toContain("urgent");
+		expect(line).toContain("[errand, urgent]");
 	});
 
 	test("includes due date", () => {

@@ -6,6 +6,7 @@
  * global error handling.
  */
 
+import { createAIClient } from "./core/ai/client.js";
 import { createClient } from "./core/client.js";
 import { CLIError } from "./core/errors.js";
 import { outputError } from "./core/output.js";
@@ -14,7 +15,8 @@ import { buildProgram } from "./program.js";
 
 // The progress decorator is the only UI concern wired at the entry point:
 // every bridge round-trip gets a stderr spinner in human mode (see ui/progress).
-const program = buildProgram(withProgress(createClient()));
+// The AI client is lazy: nothing is resolved or loaded until a verb uses it.
+const program = buildProgram(withProgress(createClient()), createAIClient());
 
 // Global error handler
 program.exitOverride();

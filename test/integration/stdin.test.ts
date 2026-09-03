@@ -4,17 +4,12 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import type { Command } from "commander";
 import { registerBulkCommands } from "../../src/commands/bulk/index.js";
 import { registerInboxCommands } from "../../src/commands/inbox/index.js";
-import type { OmniFocusClient } from "../../src/core/types.js";
 import { withStdin } from "../helpers/env.js";
-import { runCommand } from "../helpers/run.js";
+import { type Setup, runCommand } from "../helpers/run.js";
 
-function runWithTtyStdin(
-	setup: (program: Command, client: OmniFocusClient) => void,
-	argv: string[],
-) {
+function runWithTtyStdin(setup: Setup, argv: string[]) {
 	return withStdin({ isTTY: true }, () => runCommand(setup, argv));
 }
 
@@ -25,7 +20,7 @@ describe("stdin TTY guard", () => {
 	// instead of letting it propagate as a rejection.
 	const cases: Array<{
 		name: string;
-		setup: (program: Command, client: OmniFocusClient) => void;
+		setup: Setup;
 		argv: string[];
 	}> = [
 		{ name: "bulk add", setup: registerBulkCommands, argv: ["bulk", "add"] },

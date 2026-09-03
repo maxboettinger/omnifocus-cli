@@ -21,6 +21,7 @@ import { registerProjectCommands } from "../../src/commands/project/index.js";
 import { registerStatsCommand } from "../../src/commands/stats.js";
 import { registerTagCommands } from "../../src/commands/tag/index.js";
 import { registerTaskCommands } from "../../src/commands/task/index.js";
+import type { AIClient } from "../../src/core/ai/types.js";
 import { assignShortIds } from "../../src/core/short-ids.js";
 import type { OmniFocusClient } from "../../src/core/types.js";
 import { createMockClient } from "../fixtures/mock-client.js";
@@ -936,8 +937,8 @@ describe("collect command", () => {
 describe("completion command", () => {
 	test("fish completion gates notification verbs on exact task notification path", async () => {
 		const { stdout } = await runCommand(
-			(program: Command, client: OmniFocusClient) => {
-				registerTaskCommands(program, client);
+			(program: Command, client: OmniFocusClient, ai: AIClient) => {
+				registerTaskCommands(program, client, ai);
 				registerCompletionCommand(program);
 			},
 			["completion", "fish"],
@@ -1214,7 +1215,7 @@ describe("short id display", () => {
 	});
 
 	async function runHuman(
-		setup: (program: Command, client: OmniFocusClient) => void,
+		setup: (program: Command, client: OmniFocusClient, ai: AIClient) => void,
 		argv: string[],
 		client?: OmniFocusClient,
 	): Promise<{ client: OmniFocusClient; stdout: string[]; stderr: string[] }> {

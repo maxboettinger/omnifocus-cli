@@ -13,9 +13,14 @@
  */
 
 import type { Command } from "commander";
+import type { AIClient } from "../core/ai/types.js";
 import type { OmniFocusClient } from "../core/types.js";
 
-export type Register = (parent: Command, client: OmniFocusClient) => void;
+/**
+ * A verb (or nested noun) registrar. Both clients are always passed; a verb
+ * that needs no model simply declares two parameters and ignores the third.
+ */
+export type Register = (parent: Command, client: OmniFocusClient, ai: AIClient) => void;
 
 export interface NounSpec {
 	name: string;
@@ -32,10 +37,10 @@ export interface NounSpec {
 }
 
 export function defineNoun(spec: NounSpec): Register {
-	return (parent, client) => {
+	return (parent, client, ai) => {
 		const cmd = parent.command(spec.name).description(spec.description);
 		if (spec.alias) cmd.alias(spec.alias);
-		for (const register of spec.verbs) register(cmd, client);
+		for (const register of spec.verbs) register(cmd, client, ai);
 		applyVerbAliases(cmd, spec.verbAliases ?? {});
 	};
 }

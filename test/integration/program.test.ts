@@ -173,6 +173,25 @@ describe("program assembly", () => {
 		expect(client.listTaskNotifications).toHaveBeenCalledTimes(1);
 	});
 
+	test("standalone commands keep their spelled-out aliases", () => {
+		const program = buildProgram(createMockClient());
+		const aliases = Object.fromEntries(program.commands.map((c) => [c.name(), c.aliases()]));
+		expect(aliases).toMatchObject({ forecast: ["fc"] });
+	});
+
+	test("`of fc` dispatches like `of forecast`", async () => {
+		const client = createMockClient();
+		const program = buildProgram(client).exitOverride();
+		const origLog = console.log;
+		console.log = () => {};
+		try {
+			await program.parseAsync(["fc", "--json"], { from: "user" });
+		} finally {
+			console.log = origLog;
+		}
+		expect(client.forecast).toHaveBeenCalledTimes(1);
+	});
+
 	test("`of t list` dispatches like `of task list`", async () => {
 		const client = createMockClient();
 		const program = buildProgram(client).exitOverride();

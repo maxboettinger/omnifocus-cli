@@ -43,12 +43,12 @@ Noun-verb pattern: `of <noun> <verb> [args] [options]`
 | `folder` | `f` | add, list | `of folder add "Personal" --parent "Life"` |
 | `inbox` | `i` | list, add, process, process-many | `of inbox list --limit 10` |
 | `bulk` | `b` | add, update, complete | `echo '[...]' \| of bulk add` |
-| `forecast` | — | (top-level) | `of forecast --days 3` |
+| `forecast` | `fc` | (top-level) | `of forecast --days 3` |
 | `review` | — | (top-level) | `of review` |
 | `stats` | — | (top-level) | `of stats --json` |
 | `collect` | — | (top-level) | `of collect --days 7` |
 
-Every noun's one-letter alias works anywhere the full name does (`of t list` = `of task list`); verbs themselves never get aliases, and there are no root-level verb shortcuts. `task add`'s `--parent`/`--parent-id` create a subtask (folded from the former `task subtask`); `inbox add` is the same `registerAddCommand` as `task add`, mounted a second time under `inbox` rather than reimplemented. `--json` is a single root-level option (`@/src/program.ts`), not redeclared per verb.
+Every noun's one-letter alias works anywhere the full name does (`of t list` = `of task list`); every verb carries a one-letter alias within its noun (`of t c 42` = `of task complete 42`), and there are no root-level verb shortcuts. A standalone top-level command can carry its own short alias declared inline with `.alias()` — `forecast` is `fc`, since `f` is already taken by the `folder` noun — independent of the one-letter noun/verb alias scheme. `task add`'s `--parent`/`--parent-id` create a subtask (folded from the former `task subtask`); `inbox add` is the same `registerAddCommand` as `task add`, mounted a second time under `inbox` rather than reimplemented. `--json` is a single root-level option (`@/src/program.ts`), not redeclared per verb.
 
 ### Directory Structure
 

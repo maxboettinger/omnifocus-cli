@@ -8,6 +8,8 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- `of fc` as a shortcut for `of forecast`. Standalone root commands can now carry a short
+  alias of their own; `fc` rather than `f` because `f` is the `folder` noun.
 - `task search --id <id>` looks a single task up by id instead of by keyword, accepting
   either a short id from a listing or a raw OmniFocus id. Output stays search's list
   format (a one-element array in `--json`), and unlike a keyword search it finds

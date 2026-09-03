@@ -78,6 +78,8 @@ one-letter alias — `of t list` is `of task list`, `of p`, `of g` (tag), `of f`
 — and every verb has one too, so `of t c 42` completes task 42 and `of t n l 42` lists its
 notifications. Aliases are fixed letters, never prefixes, so they stay stable as verbs are
 added; `of <noun> --help` shows them as `complete|c`. Flags are never abbreviated.
+The standalone reports keep their own short spellings where the single letter is taken:
+`of fc` is `of forecast`.
 
 All commands support `--json` for machine-readable output. When stdout is piped (not a TTY), JSON is the default.
 
@@ -272,7 +274,7 @@ installed version. For example: `of completion zsh > ~/.zfunc/_of`.
 ### Reports
 
 ```bash
-of forecast --days 3          # today's categorized task view
+of forecast --days 3          # today's categorized task view (of fc)
 of review --days 7            # weekly review summary
 of stats                      # task/project statistics
 of collect --days 14          # recently completed tasks
@@ -316,7 +318,7 @@ of collect --days 14          # recently completed tasks
 | `bulk add` | Create tasks from JSON (stdin) |
 | `bulk update` | Update tasks from JSON (stdin) |
 | `bulk complete` | Complete tasks by ID (stdin) |
-| `forecast` | Daily categorized forecast (overdue, due, planned, upcoming) |
+| `forecast` (`fc`) | Daily categorized forecast (overdue, due, planned, upcoming) |
 | `review` | Weekly review summary |
 | `stats` | Task and project statistics |
 | `collect` | List recently completed tasks |

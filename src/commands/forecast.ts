@@ -9,6 +9,7 @@ import { runAction } from "./action.js";
 export function registerForecastCommand(program: Command, client: OmniFocusClient): void {
 	program
 		.command("forecast")
+		.alias("fc")
 		.description("Show today's categorized task view")
 		.option("--days <n>", "Number of days to include", parseIntOption, 3)
 		.option("--include-flagged", "Include flagged tasks")

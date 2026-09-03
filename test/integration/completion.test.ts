@@ -74,6 +74,25 @@ describe("completion script generation", () => {
 		expect(script).toContain("task|t) _describe");
 	});
 
+	test("bash offers verb aliases alongside verb names", () => {
+		const script = generateCompletionScript(program, "bash");
+		const taskVerbs = /task_verbs="([^"]*)"/.exec(script)?.[1]?.split(" ") ?? [];
+		expect(taskVerbs).toContain("complete");
+		expect(taskVerbs).toContain("c");
+	});
+
+	test("zsh describes verb aliases and matches them in nested guards", () => {
+		const script = generateCompletionScript(program, "zsh");
+		expect(script).toContain("'c:Complete one or more tasks'");
+		expect(script).toContain('"$words[3]" == "n"');
+	});
+
+	test("fish offers verb aliases and nested verb aliases", () => {
+		const script = generateCompletionScript(program, "fish");
+		expect(script).toContain("'__fish_seen_subcommand_from task t' -a c -d");
+		expect(script).toContain('contains -- "$cmd[3]" notification n');
+	});
+
 	test("fish offers aliases at top level and in subcommand guards", () => {
 		const script = generateCompletionScript(program, "fish");
 		expect(script).toContain("-n __fish_use_subcommand -a t -d 'Manage tasks'");

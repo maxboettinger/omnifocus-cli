@@ -14,4 +14,9 @@ export const registerInboxCommands = defineNoun({
 		registerProcessCommand,
 		registerProcessManyCommand,
 	],
+	verbAliases: {
+		list: "l",
+		add: "a",
+		process: "p",
+	},
 });

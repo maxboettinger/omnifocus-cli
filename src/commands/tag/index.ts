@@ -16,4 +16,11 @@ export const registerTagCommands = defineNoun({
 		registerRenameCommand,
 		registerDeleteCommand,
 	],
+	verbAliases: {
+		add: "a",
+		list: "l",
+		tasks: "t",
+		rename: "r",
+		delete: "d",
+	},
 });

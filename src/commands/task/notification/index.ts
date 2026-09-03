@@ -15,4 +15,11 @@ export const registerNotificationCommands = defineNoun({
 		registerDeleteCommand,
 		registerClearCommand,
 	],
+	verbAliases: {
+		list: "l",
+		add: "a",
+		update: "u",
+		delete: "d",
+		clear: "c",
+	},
 });

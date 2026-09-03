@@ -26,4 +26,16 @@ export const registerTaskCommands = defineNoun({
 		registerDeleteCommand,
 		registerNotificationCommands,
 	],
+	verbAliases: {
+		add: "a",
+		list: "l",
+		show: "s",
+		search: "f",
+		update: "u",
+		move: "m",
+		complete: "c",
+		tag: "g",
+		delete: "d",
+		notification: "n",
+	},
 });

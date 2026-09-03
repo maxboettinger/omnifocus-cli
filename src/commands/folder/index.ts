@@ -7,4 +7,8 @@ export const registerFolderCommands = defineNoun({
 	alias: "f",
 	description: "Manage folders",
 	verbs: [registerAddCommand, registerListCommand],
+	verbAliases: {
+		add: "a",
+		list: "l",
+	},
 });

@@ -51,7 +51,9 @@ of --version
 
 Commands follow a noun-verb pattern: `of <noun> <verb> [args] [options]`. Every noun has a
 one-letter alias — `of t list` is `of task list`, `of p`, `of g` (tag), `of f`, `of i`, `of b`
-— and nothing else is abbreviated, so aliases stay stable.
+— and every verb has one too, so `of t c 42` completes task 42 and `of t n l 42` lists its
+notifications. Aliases are fixed letters, never prefixes, so they stay stable as verbs are
+added; `of <noun> --help` shows them as `complete|c`. Flags are never abbreviated.
 
 All commands support `--json` for machine-readable output. When stdout is piped (not a TTY), JSON is the default.
 
@@ -293,6 +295,18 @@ of collect --days 14          # recently completed tasks
 | `stats` | Task and project statistics |
 | `collect` | List recently completed tasks |
 | `t p g f i b` | One-letter aliases for task, project, tag, folder, inbox, bulk |
+
+Verb aliases, per noun (`of <noun> --help` lists them):
+
+| Noun | Verb aliases |
+|------|--------------|
+| `task` | `a`dd `l`ist `s`how `f` search `u`pdate `m`ove `c`omplete `g` tag `d`elete `n`otification |
+| `task notification` | `l`ist `a`dd `u`pdate `d`elete `c`lear |
+| `project` | `a`dd `l`ist `s`how `u`pdate `r`ename `d`elete |
+| `tag` | `a`dd `l`ist `t`asks `r`ename `d`elete |
+| `folder` | `a`dd `l`ist |
+| `inbox` | `l`ist `a`dd `p`rocess (`process-many` has none) |
+| `bulk` | `a`dd `u`pdate `c`omplete |
 
 ## Development
 

@@ -5,6 +5,7 @@
  */
 
 import { afterEach, describe, expect, type mock, test } from "bun:test";
+import type { Command } from "commander";
 import pkg from "../../package.json" with { type: "json" };
 import { isProgressEnabled, setProgressEnabled, withProgress } from "../../src/core/ui/progress.js";
 import { buildProgram } from "../../src/program.js";
@@ -99,6 +100,77 @@ describe("program assembly", () => {
 			inbox: ["i"],
 			bulk: ["b"],
 		});
+	});
+
+	test("every verb alias is one letter and unique within its noun", () => {
+		const program = buildProgram(createMockClient());
+		const verbAliases = (nounName: string) => {
+			const noun = program.commands.find((c) => c.name() === nounName) as Command;
+			return Object.fromEntries(
+				noun.commands.filter((c) => c.aliases().length > 0).map((c) => [c.name(), c.aliases()]),
+			);
+		};
+		expect(verbAliases("task")).toEqual({
+			add: ["a"],
+			list: ["l"],
+			show: ["s"],
+			search: ["f"],
+			update: ["u"],
+			move: ["m"],
+			complete: ["c"],
+			tag: ["g"],
+			delete: ["d"],
+			notification: ["n"],
+		});
+		expect(verbAliases("project")).toEqual({
+			add: ["a"],
+			list: ["l"],
+			show: ["s"],
+			update: ["u"],
+			rename: ["r"],
+			delete: ["d"],
+		});
+		expect(verbAliases("tag")).toEqual({
+			add: ["a"],
+			list: ["l"],
+			tasks: ["t"],
+			rename: ["r"],
+			delete: ["d"],
+		});
+		expect(verbAliases("folder")).toEqual({ add: ["a"], list: ["l"] });
+		expect(verbAliases("inbox")).toEqual({ list: ["l"], add: ["a"], process: ["p"] });
+		expect(verbAliases("bulk")).toEqual({ add: ["a"], update: ["u"], complete: ["c"] });
+		for (const noun of program.commands) {
+			const spellings = noun.commands.flatMap((c) => [c.name(), ...c.aliases()]);
+			expect(new Set(spellings).size).toBe(spellings.length);
+			for (const alias of noun.commands.flatMap((c) => c.aliases())) expect(alias).toHaveLength(1);
+		}
+	});
+
+	test("`of t c 42` dispatches like `of task complete 42`", async () => {
+		const client = createMockClient();
+		const program = buildProgram(client).exitOverride();
+		const origLog = console.log;
+		console.log = () => {};
+		try {
+			await program.parseAsync(["t", "c", "Buy milk", "--json"], { from: "user" });
+		} finally {
+			console.log = origLog;
+		}
+		expect(client.completeTask).toHaveBeenCalledTimes(1);
+	});
+
+	test("`of t n l` reaches the nested notification noun", async () => {
+		const client = createMockClient();
+		const program = buildProgram(client).exitOverride();
+		const origLog = console.log;
+		console.log = () => {};
+		try {
+			await program.parseAsync(["t", "n", "l", "Buy milk", "--json"], { from: "user" });
+		} finally {
+			console.log = origLog;
+		}
+		expect(client.listTaskNotifications).toHaveBeenCalledTimes(1);
 	});
 
 	test("`of t list` dispatches like `of task list`", async () => {

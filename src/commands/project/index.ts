@@ -18,4 +18,12 @@ export const registerProjectCommands = defineNoun({
 		registerRenameCommand,
 		registerDeleteCommand,
 	],
+	verbAliases: {
+		add: "a",
+		list: "l",
+		show: "s",
+		update: "u",
+		rename: "r",
+		delete: "d",
+	},
 });

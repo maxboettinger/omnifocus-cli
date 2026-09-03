@@ -8,4 +8,9 @@ export const registerBulkCommands = defineNoun({
 	alias: "b",
 	description: "Bulk operations from stdin JSON",
 	verbs: [registerBulkAddCommand, registerBulkUpdateCommand, registerBulkCompleteCommand],
+	verbAliases: {
+		add: "a",
+		update: "u",
+		complete: "c",
+	},
 });

@@ -3,3 +3,8 @@ declare module "*/jxa/bridge.js" {
 	const source: string;
 	export default source;
 }
+
+declare module "*.md" {
+	const text: string;
+	export default text;
+}

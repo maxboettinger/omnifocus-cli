@@ -48,6 +48,7 @@
 		"build": "bun build --compile src/index.ts --outfile of"
 	},
 	"dependencies": {
+		"@openrouter/sdk": "1.2.100",
 		"commander": "^13.1.0",
 		"yocto-spinner": "^1.2.2"
 	},

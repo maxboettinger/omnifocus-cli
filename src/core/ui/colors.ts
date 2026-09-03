@@ -10,6 +10,7 @@
 const RESET = "\x1b[0m";
 const BOLD = "\x1b[1m";
 const DIM = "\x1b[2m";
+const STRIKE = "\x1b[9m";
 const RED = "\x1b[31m";
 const GREEN = "\x1b[32m";
 const YELLOW = "\x1b[33m";
@@ -45,6 +46,13 @@ export function bold(s: string, stream?: NodeJS.WriteStream): string {
 }
 export function dim(s: string, stream?: NodeJS.WriteStream): string {
 	return paint(DIM, s, stream);
+}
+/**
+ * Strikethrough. Terminals that do not implement SGR 9 simply ignore it, so
+ * never let it be the only carrier of meaning — pair it with a glyph.
+ */
+export function strike(s: string, stream?: NodeJS.WriteStream): string {
+	return paint(STRIKE, s, stream);
 }
 export function red(s: string, stream?: NodeJS.WriteStream): string {
 	return paint(RED, s, stream);

@@ -99,6 +99,34 @@ describe("task.list non-inbox filters", () => {
 	});
 });
 
+describe("task.list status flags", () => {
+	test("reports a task's own dropped state and the one it inherits", () => {
+		const doc = {
+			flattenedTasks: makeElementArray([
+				fullTask("in-dropped-project", { effectivelyDropped: true }),
+				fullTask("dropped-itself", { dropped: true }),
+				fullTask("in-done-project", { effectivelyCompleted: true }),
+			]),
+		};
+		const response = runBridge(doc, "task.list", { filter: "all" });
+		expect(response.ok).toBe(true);
+		expect(response.data).toMatchObject([
+			{ name: "in-dropped-project", dropped: false, effectivelyDropped: true },
+			{ name: "dropped-itself", dropped: true },
+			{ name: "in-done-project", effectivelyCompleted: true },
+		]);
+	});
+
+	test("defaults the status flags to false when OmniFocus withholds them", () => {
+		const doc = { flattenedTasks: makeElementArray([fullTask("plain")]) };
+		const response = runBridge(doc, "task.list", { filter: "all" });
+		expect(response.ok).toBe(true);
+		expect(response.data).toMatchObject([
+			{ dropped: false, effectivelyCompleted: false, effectivelyDropped: false },
+		]);
+	});
+});
+
 describe("task.list inbox filter", () => {
 	// OmniFocus keeps completed tasks in inboxTasks until cleanup, ordered
 	// oldest-first — a real inbox routinely starts with hundreds of them.
@@ -107,6 +135,17 @@ describe("task.list inbox filter", () => {
 		...Array.from({ length: 4 }, (_, i) => inboxEntry(`open-${i}`, false)),
 	];
 	const doc = { inboxTasks: makeElementArray(entries) };
+
+	test("marks a dropped inbox task instead of passing it off as active", () => {
+		const dropped = { ...inboxEntry("dropped-item", false), dropped: true };
+		const response = runBridge({ inboxTasks: makeElementArray([dropped]) }, "task.list", {
+			filter: "inbox",
+		});
+		expect(response.ok).toBe(true);
+		expect(response.data).toMatchObject([
+			{ name: "dropped-item", dropped: true, effectivelyDropped: true },
+		]);
+	});
 
 	test("limit caps returned results, not the scan window", () => {
 		const response = runBridge(doc, "task.list", { filter: "inbox", limit: 5 });

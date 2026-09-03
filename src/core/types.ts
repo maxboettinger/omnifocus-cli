@@ -21,6 +21,11 @@ export interface OFTask {
 	effectiveFlagged: boolean;
 	estimatedMinutes: number | null;
 	completed: boolean;
+	dropped: boolean;
+	/** Completed in its own right, or sitting inside a completed project/parent. */
+	effectivelyCompleted: boolean;
+	/** Dropped in its own right, or sitting inside a dropped project/parent. */
+	effectivelyDropped: boolean;
 	completionDate: string | null;
 	creationDate: string | null;
 	modificationDate: string | null;

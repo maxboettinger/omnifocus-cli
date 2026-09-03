@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { bold, colorEnabled, dim, paint, red } from "../../../src/core/ui/colors.js";
+import { bold, colorEnabled, dim, paint, red, strike } from "../../../src/core/ui/colors.js";
 import { withEnv, withStreamTTY } from "../../helpers/env.js";
 
 const NO_ENV = { NO_COLOR: undefined, FORCE_COLOR: undefined };
@@ -47,12 +47,14 @@ describe("paint and named colors", () => {
 			expect(red("x")).toBe("\x1b[31mx\x1b[0m");
 			expect(bold("x")).toBe("\x1b[1mx\x1b[0m");
 			expect(dim("x")).toBe("\x1b[2mx\x1b[0m");
+			expect(strike("x")).toBe("\x1b[9mx\x1b[0m");
 		});
 	});
 
 	test("return plain text when color is disabled", () => {
 		withEnv({ NO_COLOR: "1", FORCE_COLOR: undefined }, () => {
 			expect(red("x")).toBe("x");
+			expect(strike("x")).toBe("x");
 			expect(paint("\x1b[36m", "x", process.stderr)).toBe("x");
 		});
 	});

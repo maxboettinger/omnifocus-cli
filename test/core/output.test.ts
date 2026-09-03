@@ -46,6 +46,9 @@ function makeTask(overrides: Partial<OFTask> = {}): OFTask {
 		creationDate: "2026-01-15T10:00:00.000Z",
 		modificationDate: null,
 		sequential: false,
+		dropped: false,
+		effectivelyCompleted: false,
+		effectivelyDropped: false,
 		inInbox: false,
 		blocked: false,
 		project: "Errands",
@@ -134,6 +137,193 @@ describe("formatTaskLine", () => {
 	test("includes estimate", () => {
 		const line = formatTaskLine(makeTask({ estimatedMinutes: 30 }));
 		expect(line).toContain("30min");
+	});
+});
+
+// ── Status cues ─────────────────────────────────────────────────────────────
+
+const NO_COLOR_ENV = { NO_COLOR: "1", FORCE_COLOR: undefined };
+const COLOR_ENV = { NO_COLOR: undefined, FORCE_COLOR: "1" };
+
+/** Days from now as an ISO string, for defer-date fixtures. */
+function isoDaysFromNow(days: number): string {
+	return new Date(Date.now() + days * 86_400_000).toISOString();
+}
+
+describe("task status cues", () => {
+	test("an active task renders exactly as it did before status cues", () => {
+		withEnv(NO_COLOR_ENV, () => {
+			expect(formatTaskLine(makeTask())).toBe("Buy groceries Errands");
+		});
+	});
+
+	test("marks a completed task with a check", () => {
+		withEnv(NO_COLOR_ENV, () => {
+			expect(formatTaskLine(makeTask({ completed: true }))).toBe("✓ Buy groceries Errands");
+		});
+	});
+
+	test("marks a task completed through its project with a check", () => {
+		withEnv(NO_COLOR_ENV, () => {
+			const line = formatTaskLine(makeTask({ completed: false, effectivelyCompleted: true }));
+			expect(line).toBe("✓ Buy groceries Errands");
+		});
+	});
+
+	test("marks a dropped task with a slashed circle", () => {
+		withEnv(NO_COLOR_ENV, () => {
+			expect(formatTaskLine(makeTask({ dropped: true }))).toBe("⊘ Buy groceries Errands");
+		});
+	});
+
+	test("marks a task dropped through its project with a slashed circle", () => {
+		withEnv(NO_COLOR_ENV, () => {
+			const line = formatTaskLine(makeTask({ dropped: false, effectivelyDropped: true }));
+			expect(line).toBe("⊘ Buy groceries Errands");
+		});
+	});
+
+	test("marks a blocked task with a pause bar", () => {
+		withEnv(NO_COLOR_ENV, () => {
+			expect(formatTaskLine(makeTask({ blocked: true }))).toBe("‖ Buy groceries Errands");
+		});
+	});
+
+	test("marks a task deferred into the future with an arrow", () => {
+		withEnv(NO_COLOR_ENV, () => {
+			const line = formatTaskLine(makeTask({ deferDate: isoDaysFromNow(3) }));
+			expect(line).toBe("→ Buy groceries Errands");
+		});
+	});
+
+	test("leaves a task whose defer date has passed unmarked", () => {
+		withEnv(NO_COLOR_ENV, () => {
+			const line = formatTaskLine(makeTask({ deferDate: isoDaysFromNow(-3) }));
+			expect(line).toBe("Buy groceries Errands");
+		});
+	});
+
+	test("prefers the task's own state over the inherited one", () => {
+		withEnv(NO_COLOR_ENV, () => {
+			const line = formatTaskLine(makeTask({ completed: true, effectivelyDropped: true }));
+			expect(line).toBe("✓ Buy groceries Errands");
+		});
+	});
+
+	test("strikes through the name of a finished task", () => {
+		withEnv(COLOR_ENV, () => {
+			expect(formatTaskLine(makeTask({ completed: true }))).toContain("\x1b[9mBuy groceries");
+			expect(formatTaskLine(makeTask({ dropped: true }))).toContain("\x1b[9mBuy groceries");
+		});
+	});
+
+	test("leaves the name of a merely waiting task unstruck", () => {
+		withEnv(COLOR_ENV, () => {
+			expect(formatTaskLine(makeTask({ blocked: true }))).not.toContain("\x1b[9m");
+			expect(formatTaskLine(makeTask({ deferDate: isoDaysFromNow(3) }))).not.toContain("\x1b[9m");
+		});
+	});
+
+	test("keeps the glyph when color is disabled", () => {
+		withEnv(NO_COLOR_ENV, () => {
+			expect(formatTaskLine(makeTask({ completed: true }))).toContain("✓");
+			expect(formatTaskLine(makeTask({ completed: true }))).not.toContain("\x1b[");
+		});
+	});
+
+	test("keeps the glyph left of the flag marker", () => {
+		withEnv(NO_COLOR_ENV, () => {
+			const line = formatTaskLine(makeTask({ completed: true, flagged: true }));
+			expect(line).toBe("✓ ⚑ Buy groceries Errands");
+		});
+	});
+
+	test("places the glyph after the short id", () => {
+		withEnv(NO_COLOR_ENV, () => {
+			const line = formatTaskLine(makeTask({ completed: true }), { shortId: 7 });
+			expect(line).toBe("7  ✓ Buy groceries Errands");
+		});
+	});
+});
+
+describe("task detail status header", () => {
+	test("leads a completed task with a status header carrying the completion date", () => {
+		withEnv(NO_COLOR_ENV, () => {
+			const detail = formatTaskDetail(
+				makeTask({ completed: true, completionDate: "2026-03-01T09:00:00.000Z" }),
+			);
+			expect(detail.split("\n")[1]).toContain("✓ Completed");
+			expect(detail.split("\n")[1]).toContain("2026-03-01");
+			expect(detail).not.toContain("Completed: yes");
+		});
+	});
+
+	test("labels an inherited completion as such", () => {
+		withEnv(NO_COLOR_ENV, () => {
+			const detail = formatTaskDetail(makeTask({ effectivelyCompleted: true }));
+			expect(detail.split("\n")[1]).toBe("✓ Completed (inherited)");
+		});
+	});
+
+	test("leads a dropped task with a dropped header", () => {
+		withEnv(NO_COLOR_ENV, () => {
+			const detail = formatTaskDetail(makeTask({ dropped: true }));
+			expect(detail.split("\n")[1]).toBe("⊘ Dropped");
+		});
+	});
+
+	test("leads a blocked task with a blocked header instead of a buried field", () => {
+		withEnv(NO_COLOR_ENV, () => {
+			const detail = formatTaskDetail(makeTask({ blocked: true }));
+			expect(detail.split("\n")[1]).toBe("‖ Blocked");
+			expect(detail).not.toContain("Blocked: yes");
+		});
+	});
+
+	test("adds no header line for an active task", () => {
+		withEnv(NO_COLOR_ENV, () => {
+			const detail = formatTaskDetail(makeTask());
+			expect(detail.split("\n")[0]).toBe("Buy groceries");
+			expect(detail.split("\n")[1]).toBe("ID: task-abc123");
+		});
+	});
+});
+
+describe("project status cues", () => {
+	test("leaves an active project unmarked", () => {
+		withEnv(NO_COLOR_ENV, () => {
+			expect(formatProjectLine(makeProject())).toBe(
+				"Home Renovation [active] 10 tasks in Personal",
+			);
+		});
+	});
+
+	test("marks a done project with a check", () => {
+		withEnv(NO_COLOR_ENV, () => {
+			expect(formatProjectLine(makeProject({ status: "done" }))).toStartWith("✓ Home Renovation");
+		});
+	});
+
+	test("marks a dropped project with a slashed circle", () => {
+		withEnv(NO_COLOR_ENV, () => {
+			expect(formatProjectLine(makeProject({ status: "dropped" }))).toStartWith(
+				"⊘ Home Renovation",
+			);
+		});
+	});
+
+	test("marks an on-hold project with a pause bar", () => {
+		withEnv(NO_COLOR_ENV, () => {
+			expect(formatProjectLine(makeProject({ status: "on hold" }))).toStartWith(
+				"‖ Home Renovation",
+			);
+		});
+	});
+
+	test("marks a done project in the detail view too", () => {
+		withEnv(NO_COLOR_ENV, () => {
+			expect(formatProjectDetail(makeProject({ status: "done" }))).toStartWith("✓ Home Renovation");
+		});
 	});
 });
 

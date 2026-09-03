@@ -21,7 +21,7 @@ import type {
 	OFTask,
 	OutputFormat,
 } from "./types.js";
-import { bold, cyan, dim, green, red, yellow } from "./ui/colors.js";
+import { bold, cyan, dim, green, red, strike, yellow } from "./ui/colors.js";
 
 // ── Format detection ────────────────────────────────────────────────────────
 
@@ -154,6 +154,79 @@ export function outputBatchSummary(title: string, results: readonly BatchItem[])
 	return { succeeded: succeeded.length, failed: failed.length, partial: partial.length };
 }
 
+// ── Status cues ─────────────────────────────────────────────────────────────
+
+/**
+ * What an entity's rendering should signal at a glance. `active` is the
+ * default view and stays undecorated — every other cue earns a glyph, so a
+ * finished or waiting item is never mistaken for an actionable one.
+ */
+export type StatusCue = "active" | "completed" | "dropped" | "blocked" | "deferred";
+
+/**
+ * Glyphs are text-presentation characters (no emoji-width surprises) and are
+ * the load-bearing part of the cue: color merely amplifies them, so the
+ * signal survives NO_COLOR and non-color terminals. `finished` marks the
+ * terminal states, whose names are additionally dimmed and struck through.
+ */
+const STATUS_CUES: Record<
+	Exclude<StatusCue, "active">,
+	{ glyph: string; paint: (s: string) => string; label: string; finished: boolean }
+> = {
+	completed: { glyph: "✓", paint: green, label: "Completed", finished: true },
+	dropped: { glyph: "⊘", paint: red, label: "Dropped", finished: true },
+	blocked: { glyph: "‖", paint: yellow, label: "Blocked", finished: false },
+	deferred: { glyph: "→", paint: dim, label: "Deferred", finished: false },
+};
+
+/**
+ * A task's cue. The task's own state wins over the state it inherits from a
+ * containing project or parent task, and a terminal state wins over a merely
+ * waiting one.
+ */
+export function taskStatusCue(task: OFTask): StatusCue {
+	if (task.completed) return "completed";
+	if (task.dropped) return "dropped";
+	// A task inside a done/dropped project keeps its own flags false — only
+	// the effective ones reveal it, which is why it would otherwise show up
+	// in listings looking perfectly actionable.
+	if (task.effectivelyCompleted) return "completed";
+	if (task.effectivelyDropped) return "dropped";
+	if (task.blocked) return "blocked";
+	const defer = task.effectiveDeferDate ?? task.deferDate;
+	if (defer && new Date(defer) > new Date()) return "deferred";
+	return "active";
+}
+
+/** A project's cue, derived from the status string the bridge reports. */
+export function projectStatusCue(status: string): StatusCue {
+	switch (status.toLowerCase().replace(/[-_\s]/g, "")) {
+		case "done":
+		case "completed":
+			return "completed";
+		case "dropped":
+			return "dropped";
+		case "onhold":
+		case "hold":
+			return "blocked";
+		default:
+			return "active";
+	}
+}
+
+/** The painted glyph for a cue, or undefined for the undecorated default. */
+function statusGlyph(cue: StatusCue): string | undefined {
+	if (cue === "active") return undefined;
+	const { glyph, paint } = STATUS_CUES[cue];
+	return paint(glyph);
+}
+
+/** Dim and strike the name of an entity that is done with — nothing else. */
+function styleName(name: string, cue: StatusCue): string {
+	if (cue === "active" || !STATUS_CUES[cue].finished) return name;
+	return dim(strike(name));
+}
+
 // ── Task formatting ─────────────────────────────────────────────────────────
 
 /** Optional short-ID decoration for human-mode task rendering. */
@@ -172,11 +245,16 @@ export function formatTaskLine(task: OFTask, display: ShortIdDisplay = {}): stri
 		parts.push(`${dim(String(display.shortId).padStart(width))} `);
 	}
 
+	// Status cue — absent for active tasks, so the default view is unchanged
+	const cue = taskStatusCue(task);
+	const glyph = statusGlyph(cue);
+	if (glyph) parts.push(glyph);
+
 	// Flagged indicator
 	if (task.flagged) parts.push("⚑");
 
 	// Name
-	parts.push(task.name);
+	parts.push(styleName(task.name, cue));
 
 	// Project (if not Inbox)
 	if (task.project && task.project !== "Inbox") {
@@ -206,7 +284,10 @@ export function formatTaskLine(task: OFTask, display: ShortIdDisplay = {}): stri
 export function formatTaskDetail(task: OFTask, display: ShortIdDisplay = {}): string {
 	const lines: string[] = [];
 
-	lines.push(bold(task.name));
+	const cue = taskStatusCue(task);
+	lines.push(bold(styleName(task.name, cue)));
+	const header = taskStatusHeader(task, cue);
+	if (header) lines.push(header);
 	if (display.shortId != null) {
 		lines.push(`${dim("ID:")} ${display.shortId} ${dim(`(${task.id})`)}`);
 	} else {
@@ -241,13 +322,31 @@ export function formatTaskDetail(task: OFTask, display: ShortIdDisplay = {}): st
 	if (task.repetitionRule)
 		lines.push(`${dim("Repeat:")} ${task.repetitionRule.rule} (${task.repetitionRule.method})`);
 	if (task.sequential) lines.push(`${dim("Sequential:")} yes`);
-	if (task.blocked) lines.push(`${dim("Blocked:")} ${red("yes")}`);
 	if (task.parentTask) lines.push(`${dim("Parent:")} ${task.parentTask.name}`);
 	if (task.childCount > 0) lines.push(`${dim("Children:")} ${task.childCount}`);
-	if (task.completed) lines.push(`${dim("Completed:")} ${green("yes")}`);
 	if (task.creationDate) lines.push(`${dim("Created:")} ${formatDateLong(task.creationDate)}`);
 
 	return lines.join("\n");
+}
+
+/**
+ * The status line under a task's name in the detail view: "✓ Completed
+ * 2026-03-01", "⊘ Dropped (inherited)". Nothing for an active task.
+ */
+function taskStatusHeader(task: OFTask, cue: StatusCue): string | undefined {
+	if (cue === "active") return undefined;
+	const { glyph, paint, label } = STATUS_CUES[cue];
+	const parts = [paint(`${glyph} ${label}`)];
+	if (cue === "completed" && task.completionDate) parts.push(formatDateShort(task.completionDate));
+	if (cue === "deferred") {
+		const defer = task.effectiveDeferDate ?? task.deferDate;
+		if (defer) parts.push(`until ${formatDateShort(defer)}`);
+	}
+	// Inherited from a done/dropped container rather than set on the task.
+	const inherited =
+		cue === "completed" ? !task.completed : cue === "dropped" ? !task.dropped : false;
+	if (inherited) parts.push("(inherited)");
+	return parts.join(" ");
 }
 
 export function outputTaskList(tasks: OFTask[], format: OutputFormat): void {
@@ -296,7 +395,10 @@ export function outputTaskDetail(task: OFTask, format: OutputFormat): void {
 
 export function formatProjectLine(project: OFProjectCompact | OFProject): string {
 	const parts: string[] = [];
-	parts.push(project.name);
+	const cue = projectStatusCue(project.status);
+	const glyph = statusGlyph(cue);
+	if (glyph) parts.push(glyph);
+	parts.push(styleName(project.name, cue));
 	parts.push(dim(`[${project.status}]`));
 	parts.push(dim(`${project.taskCount} tasks`));
 	if ("parentFolder" in project && project.parentFolder) {
@@ -308,7 +410,9 @@ export function formatProjectLine(project: OFProjectCompact | OFProject): string
 export function formatProjectDetail(project: OFProject): string {
 	const lines: string[] = [];
 
-	lines.push(bold(project.name));
+	const cue = projectStatusCue(project.status);
+	const glyph = statusGlyph(cue);
+	lines.push(`${glyph ? `${glyph} ` : ""}${bold(styleName(project.name, cue))}`);
 	lines.push(`${dim("ID:")} ${project.id}`);
 	lines.push(`${dim("Status:")} ${project.status}`);
 	if (project.note) lines.push(`${dim("Note:")} ${project.note}`);

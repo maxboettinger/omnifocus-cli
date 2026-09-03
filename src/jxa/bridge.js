@@ -252,6 +252,11 @@ function formatTask(task) {
         effectiveFlagged: (function() { try { return task.effectiveFlagged(); } catch(e) { return task.flagged(); } })(),
         estimatedMinutes: task.estimatedMinutes() || null,
         completed: task.completed(),
+        dropped: (function() { try { return !!task.dropped(); } catch(e) { return false; } })(),
+        // A task inside a done/dropped project keeps its own flags false —
+        // only the effective ones reveal that it is no longer actionable.
+        effectivelyCompleted: (function() { try { return !!task.effectivelyCompleted(); } catch(e) { return task.completed(); } })(),
+        effectivelyDropped: (function() { try { return !!task.effectivelyDropped(); } catch(e) { try { return !!task.dropped(); } catch(e2) { return false; } } })(),
         completionDate: task.completionDate() ? task.completionDate().toISOString() : null,
         creationDate: (function() { try { var d = task.creationDate(); return d ? d.toISOString() : null; } catch(e) { return null; } })(),
         modificationDate: (function() { try { var d = task.modificationDate(); return d ? d.toISOString() : null; } catch(e) { return null; } })(),
@@ -885,6 +890,9 @@ ops["task.list"] = function(of, doc, p) {
         var names = inbox.name(), ids = inbox.id(), notes = inbox.note();
         var dueDates = inbox.dueDate(), deferDates = inbox.deferDate(), flagged = inbox.flagged();
         var estimates = inbox.estimatedMinutes(), completed = inbox.completed();
+        // Dropped inbox tasks keep completed === false, so without this they
+        // would list as if they were still actionable.
+        var droppedFlags; try { droppedFlags = inbox.dropped(); } catch(e) { droppedFlags = []; }
         var plannedDates; try { plannedDates = inbox.plannedDate(); } catch(e) { plannedDates = []; }
         var creationDates; try { creationDates = inbox.creationDate(); } catch(e) { creationDates = []; }
         // limit caps returned results, not the scan window — completed tasks
@@ -911,6 +919,7 @@ ops["task.list"] = function(of, doc, p) {
             var cd = creationDates.length > i && creationDates[i] ? creationDates[i].toISOString() : null;
             var md = null; try { var mdt = task.modificationDate(); if (mdt) md = mdt.toISOString(); } catch(e) {}
             var pl = plannedDates.length > i ? plannedDates[i] : null;
+            var dropped = droppedFlags.length > i ? !!droppedFlags[i] : false;
             results.push({
                 name: names[i], id: ids[i], note: notes[i] || "",
                 dueDate: dueDates[i] ? dueDates[i].toISOString() : null,
@@ -921,6 +930,7 @@ ops["task.list"] = function(of, doc, p) {
                 effectivePlannedDate: pl ? pl.toISOString() : null,
                 flagged: flagged[i], effectiveFlagged: flagged[i],
                 estimatedMinutes: estimates[i] || null, completed: false,
+                dropped: dropped, effectivelyCompleted: false, effectivelyDropped: dropped,
                 completionDate: null, creationDate: cd, modificationDate: md,
                 sequential: seq, inInbox: true, blocked: false,
                 project: "Inbox", parentTask: null, tags: tagNames,
@@ -1519,7 +1529,9 @@ ops["forecast"] = function(of, doc, p) {
             project: project || "Inbox", parentTask: parent, tags: tagNames,
             estimatedMinutes: est, sequential: seq, blocked: blocked,
             repetitionRule: rep, childCount: cc, creationDate: cd, modificationDate: md,
-            completed: false, completionDate: null, inInbox: false,
+            completed: false, dropped: false,
+            effectivelyCompleted: false, effectivelyDropped: false,
+            completionDate: null, inInbox: false,
             daysOverdue: daysOverdue
         };
     }

@@ -84,6 +84,38 @@ The standalone reports keep their own short spellings where the single letter is
 
 All commands support `--json` for machine-readable output. When stdout is piped (not a TTY), JSON is the default.
 
+### Status at a glance
+
+Active items render exactly as they always have. Anything that is *not* simply actionable
+is marked with a glyph, so a finished or waiting item is never mistaken for a live one:
+
+```
+$ of task list --filter all
+ 42  ⚑ Buy milk Errands [shopping] due:2026-09-01
+ 43  ✓ O̶l̶d̶ ̶t̶i̶r̶e̶s̶ ̶s̶o̶l̶d̶ Car
+ 44  ⊘ C̶a̶l̶l̶ ̶t̶h̶e̶ ̶g̶a̶r̶a̶g̶e̶ Car
+ 45  ‖ Pay the invoice Car
+ 46  → Confirm the appointment Car
+```
+
+| Glyph | Meaning |
+| --- | --- |
+| *(none)* | Active — available to work on |
+| `✓` | Completed, or sitting inside a completed project |
+| `⊘` | Dropped, or sitting inside a dropped project |
+| `‖` | Blocked by a preceding task in a sequential group (an on-hold project) |
+| `→` | Deferred to a future date |
+
+The last two matter most in `--filter all`, `task search` and `tag tasks`; the default
+`available` filter never shows them. Completed and dropped items also get their name dimmed
+and struck through, and `task show` states the status on its own line under the name
+(`✓ Completed 2026-09-01`, `⊘ Dropped (inherited)` for a status held only through the
+project or parent). Projects carry the same glyphs in `project list` and `project show`.
+
+The glyph — not the color — carries the meaning, so the cue survives `NO_COLOR` and
+terminals that ignore strikethrough. `--json` output is unaffected apart from three new
+task fields: `dropped`, `effectivelyCompleted` and `effectivelyDropped`.
+
 ### Short task IDs
 
 Every task shown in a human-readable listing (`task list`, `task search`, `task show`,

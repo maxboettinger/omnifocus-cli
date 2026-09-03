@@ -10,6 +10,7 @@ A TypeScript CLI for managing OmniFocus from the terminal. Built on Bun + Comman
 - macOS (uses Apple Events via `osascript`) — on other platforms the CLI exits with a clear error
 - [Bun](https://bun.sh/) >= 1.0
 - OmniFocus installed and running
+- For the AI commands only: an [OpenRouter](https://openrouter.ai/) API key (see [AI features](#ai-features))
 
 ### First run: Automation permission
 
@@ -90,8 +91,8 @@ Every task shown in a human-readable listing (`task list`, `task search`, `task 
 
 ```
 $ of task list
- 42  ⚑ Buy milk [Errands] due:2026-09-01
-127  Call the dentist [Health]
+ 42  ⚑ Buy milk Errands [shopping] due:2026-09-01
+127  Call the dentist Health
 ```
 
 Any command that takes a task reference accepts that number in place of a name or the
@@ -262,6 +263,79 @@ Bulk commands (and `inbox process-many`) read their JSON payload from stdin and 
 immediately with a usage example if nothing is piped. Arbitrarily large payloads are safe —
 oversized commands are streamed to the bridge instead of passed as process arguments.
 
+### AI features
+
+Two verbs talk to a language model through [OpenRouter](https://openrouter.ai/). They need an
+API key, and nothing else in the CLI does — every other command works without one.
+
+```bash
+export OPENROUTER_API_KEY=sk-or-...        # or put it in the config file below
+export OF_AI_MODEL=openai/gpt-4.1-mini     # optional; default is google/gemini-3.8-flash
+```
+
+Config file: `~/.config/omnifocus-cli/config.json` (`$XDG_CONFIG_HOME` respected):
+
+```json
+{ "ai": { "apiKey": "sk-or-...", "model": "google/gemini-3.8-flash" } }
+```
+
+Precedence is `--model` flag > `$OF_AI_MODEL` > config file > default; the key comes from
+`$OPENROUTER_API_KEY`, else the config file. Any model id OpenRouter routes works
+(`openrouter/auto`, `:nitro`/`:floor` suffixes included), but `task breakdown` needs a model
+that supports strict JSON-schema output.
+
+**Break a task into nano tasks** — granular, single-action subtasks designed for people for
+whom starting is the hard part (the prompt is AuDHD-aware: an ignition step first, one
+observable action per task, 2–10 minutes each, implicit prep made explicit, no vague verbs):
+
+```bash
+of task breakdown 42                           # or `of t b 42`
+of task breakdown 42 --context "I only have the evenings this week"
+```
+
+The model sees the whole picture — the task, its parents, its project, subtasks that already
+exist (completed ones included), its siblings and your tag list — and answers with a
+structured plan. You get a preview:
+
+```
+Plan for: File the tax return — new subtasks in order
+Ignition first, then the portal.
+
+1 Open the tax portal in the browser 1min
+2 Find last year's return PDF in ~/Documents/Taxes 3min [@computer]
+3 Log in with the ID card app (in order) 5min
+  3.1 Plug in the card reader 1min
+  3.2 Enter the PIN 1min
+
+5 tasks, ~11 min total
+
+[a]pply, [r]evise or [q]uit:
+```
+
+`r` asks what should change and sends your feedback back with the full conversation, as often
+as you like; `a` creates the whole tree in one OmniFocus round-trip (nesting, estimates, tags,
+sequential/parallel on every level, and the target task's own ordering); `q`, Esc or Ctrl-C
+changes nothing. `--apply` skips the preview.
+
+For scripts and agents: `of task breakdown 42 --json` prints `{ target, model, plan,
+applied: null }` and never touches OmniFocus; add `--apply` to create the tasks and get
+`applied` (the per-item result, exit 1 if any item failed).
+
+**Work out why you are avoiding something** — a "five whys" coaching session:
+
+```bash
+of task why 42                                 # or `of t w 42`
+of task why                                    # no task, start from "what are you avoiding?"
+```
+
+The coach asks one question at a time, adapts to your answers, and keeps going until you leave
+with Esc, Ctrl-C, Ctrl-D or `/quit`. It is a terminal-only session: it refuses `--json` and
+piped stdin.
+
+**Prompts are plain Markdown** in [`src/prompts/`](src/prompts/) (`why.md`, `breakdown.md`).
+They are embedded in the binary, and any of them can be overridden without rebuilding by
+putting a file of the same name in `~/.config/omnifocus-cli/prompts/` (or `$OF_PROMPTS_DIR`).
+
 ### Shell completions
 
 ```bash
@@ -298,6 +372,8 @@ of collect --days 14          # recently completed tasks
 | `task notification delete` | Delete a task notification |
 | `task notification clear` | Clear all task notifications (requires `--confirm`) |
 | `task tag` | Apply tags to a task |
+| `task breakdown` | AI: split a task into nano subtasks, preview, revise, apply (`--json` prints the plan) |
+| `task why` | AI: interactive five-whys session about an avoided task |
 | `project add` | Create a new project |
 | `project list` | List projects |
 | `project show` | Show project details |
@@ -328,7 +404,7 @@ Verb aliases, per noun (`of <noun> --help` lists them):
 
 | Noun | Verb aliases |
 |------|--------------|
-| `task` | `a`dd `l`ist `s`how `f` search `u`pdate `m`ove `c`omplete `g` tag `d`elete `n`otification |
+| `task` | `a`dd `l`ist `s`how `f` search `u`pdate `m`ove `c`omplete `g` tag `d`elete `n`otification `b`reakdown `w`hy |
 | `task notification` | `l`ist `a`dd `u`pdate `d`elete `c`lear |
 | `project` | `a`dd `l`ist `s`how `u`pdate `r`ename `d`elete |
 | `tag` | `a`dd `l`ist `t`asks `r`ename `d`elete |
@@ -363,12 +439,22 @@ Three clean layers:
 
 Human-mode presentation is split from those layers: `src/core/output.ts` renders OmniFocus
 entities, and `src/core/ui/` holds entity-agnostic terminal primitives (ANSI colors,
-interactivity detection, the progress spinner). The spinner is a decorator over the client
-(`withProgress`) wired once in `src/index.ts`, so commands never know it exists.
+interactivity detection, the progress spinner, the interactive prompter). The spinner is a
+decorator over the client (`withProgress`) wired once in `src/index.ts`, so commands never
+know it exists.
+
+The language model is a second injected seam beside the OmniFocus client: `src/core/ai/`
+defines an `AIClient` interface (`chat`, `stream`, `structured`), config resolution, the
+prompt loader and the OpenRouter adapter — the only module that imports the SDK, and only
+lazily, so runs that never use a model never load it. `buildProgram(client, ai)` threads both
+clients into every verb.
 
 ### Testing
 
-Tests use mocked `OmniFocusClient` implementations -- no OmniFocus required. Integration tests verify the full command-parse-to-output flow.
+Tests use mocked `OmniFocusClient` implementations and a scripted fake `AIClient` -- no
+OmniFocus and no network required. Integration tests verify the full command-parse-to-output
+flow, including the interactive preview/revise loop through a fake terminal. The OpenRouter
+adapter is tested with the real SDK against a local fake HTTP endpoint.
 
 ```bash
 bun test                           # all tests

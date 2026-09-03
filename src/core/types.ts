@@ -215,6 +215,78 @@ export interface TaskNotificationClearOptions {
 	confirm?: boolean;
 }
 
+// ── Task context & subtask trees (AI verbs) ─────────────────────────────────
+
+/** A task with its existing subtree, completed children included. */
+export interface ContextNode extends OFTask {
+	children: ContextNode[];
+}
+
+export interface TaskContextSibling {
+	id: string;
+	name: string;
+	completed: boolean;
+}
+
+/** Payload of the `task.context` op: everything a prompt needs about one task. */
+export interface TaskContext {
+	task: OFTask;
+	/** Parent chain, nearest first; a project's invisible root task is excluded. */
+	ancestors: OFTask[];
+	project: OFProject | null;
+	children: ContextNode[];
+	/** Other tasks in the same container (parent task, project, or inbox). */
+	siblings: TaskContextSibling[];
+	/** Every tag name in the database. */
+	tags: string[];
+}
+
+export interface TaskContextOptions {
+	query?: string;
+	id?: string;
+	searchCompleted?: boolean;
+}
+
+/** One task to create in `task.createTree`; `parentKey` names an earlier item. */
+export interface PlanTaskInput {
+	key: string;
+	parentKey: string | null;
+	name: string;
+	note?: string;
+	estimate?: number | null;
+	tags?: string[];
+	flag?: boolean;
+	sequential?: boolean;
+	due?: string | null;
+	defer?: string | null;
+}
+
+export interface CreateTreeOptions {
+	/** Nest the tree under this task. Mutually exclusive with projectId. */
+	parentId?: string;
+	/** Create the tree at the top level of this project. */
+	projectId?: string;
+	/** Set the target's own sequential flag before creating children. */
+	sequential?: boolean;
+	tasks: PlanTaskInput[];
+}
+
+export interface CreateTreeItem {
+	key: string;
+	ok: boolean;
+	id?: string;
+	name: string;
+	error?: string;
+	warnings?: string[];
+}
+
+export interface CreateTreeResult {
+	parent: { id: string; name: string; project: string };
+	created: CreateTreeItem[];
+	/** Problems applying properties to the target itself. */
+	warnings: string[];
+}
+
 // ── Project mutation options ────────────────────────────────────────────────
 
 export interface ProjectCreateOptions {
@@ -497,6 +569,8 @@ export interface OmniFocusClient {
 		query: string,
 		opts?: { id?: string; confirm?: boolean },
 	): Promise<BridgeResponse<{ id: string; name: string; action: string }>>;
+	getTaskContext(opts: TaskContextOptions): Promise<BridgeResponse<TaskContext>>;
+	createTaskTree(opts: CreateTreeOptions): Promise<BridgeResponse<CreateTreeResult>>;
 	listTaskNotifications(
 		opts: TaskNotificationListOptions,
 	): Promise<

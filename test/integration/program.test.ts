@@ -5,10 +5,13 @@
  */
 
 import { afterEach, describe, expect, type mock, test } from "bun:test";
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join } from "node:path";
 import type { Command } from "commander";
 import pkg from "../../package.json" with { type: "json" };
 import { isProgressEnabled, setProgressEnabled, withProgress } from "../../src/core/ui/progress.js";
 import { buildProgram } from "../../src/program.js";
+import { createFakeAI } from "../fixtures/fake-ai.js";
 import { createMockClient } from "../fixtures/mock-client.js";
 import { successResponse } from "../fixtures/mock-responses.js";
 import { withEnv, withStreamTTY } from "../helpers/env.js";
@@ -121,6 +124,8 @@ describe("program assembly", () => {
 			tag: ["g"],
 			delete: ["d"],
 			notification: ["n"],
+			breakdown: ["b"],
+			why: ["w"],
 		});
 		expect(verbAliases("project")).toEqual({
 			add: ["a"],
@@ -226,5 +231,42 @@ describe("progress gating by output format", () => {
 	test("piped stdout (implicit JSON) draws nothing", async () => {
 		const chrome = await runWithProgress(["forecast"], false);
 		expect(chrome).toBe("");
+	});
+});
+
+describe("AI seam", () => {
+	test("a non-AI command never touches the AI client", async () => {
+		const client = createMockClient();
+		const ai = createFakeAI();
+		const program = buildProgram(client, ai).exitOverride();
+		const origLog = console.log;
+		console.log = () => {};
+		try {
+			await program.parseAsync(["task", "list", "--json"], { from: "user" });
+			await program.parseAsync(["forecast", "--json"], { from: "user" });
+		} finally {
+			console.log = origLog;
+		}
+		expect(ai.requests).toEqual([]);
+	});
+
+	test("only the OpenRouter adapter imports the SDK, and only dynamically", () => {
+		const files: string[] = [];
+		const walk = (dir: string) => {
+			for (const entry of readdirSync(dir)) {
+				const path = join(dir, entry);
+				if (statSync(path).isDirectory()) walk(path);
+				else if (path.endsWith(".ts")) files.push(path);
+			}
+		};
+		walk(join(import.meta.dir, "../../src"));
+		const importers = files.filter((f) =>
+			/^import\s+(?!type\b)[^;]*from\s+"@openrouter\/sdk/m.test(readFileSync(f, "utf8")),
+		);
+		// No static value import anywhere: the SDK must be `await import()`ed
+		// so a `--json` listing never evaluates it.
+		expect(importers).toEqual([]);
+		const users = files.filter((f) => readFileSync(f, "utf8").includes("@openrouter/sdk"));
+		expect(users.map((f) => f.split("/src/")[1])).toEqual(["core/ai/openrouter.ts"]);
 	});
 });

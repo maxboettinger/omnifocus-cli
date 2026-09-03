@@ -8,6 +8,22 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
+- AI features through [OpenRouter](https://openrouter.ai/) (`OPENROUTER_API_KEY`, optional
+  `~/.config/omnifocus-cli/config.json` with `ai.apiKey`/`ai.model`, `--model` per run,
+  `$OF_AI_MODEL` globally; default model `google/gemini-3.8-flash`). Nothing else in the CLI
+  needs a key.
+- `task breakdown <ref>` (`of t b`): splits a task into granular, AuDHD-friendly nano
+  subtasks using structured output, with full context (parents, project, existing and
+  completed subtasks, siblings, tags) and optional `--context` text. Human mode previews the
+  tree and loops apply / revise-with-feedback / quit; applying creates the whole nested tree,
+  estimates, tags and sequential/parallel flags in one OmniFocus round-trip. `--json` prints
+  the plan and changes nothing; `--json --apply` applies and reports per item.
+- `task why [ref]` (`of t w`): an interactive "five whys" coaching session about an avoided
+  task, streamed turn by turn, ending only on Esc, Ctrl-C, Ctrl-D or `/quit`.
+- System prompts are Markdown files in `src/prompts/`, embedded in the binary and
+  overridable per user via `~/.config/omnifocus-cli/prompts/<name>.md` or `$OF_PROMPTS_DIR`.
+- Bridge ops `task.context` and `task.createTree` (also accepts a `projectId` target).
+
 - `of fc` as a shortcut for `of forecast`. Standalone root commands can now carry a short
   alias of their own; `fc` rather than `f` because `f` is the `folder` noun.
 - `task search --id <id>` looks a single task up by id instead of by keyword, accepting

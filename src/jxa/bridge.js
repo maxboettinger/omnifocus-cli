@@ -671,6 +671,153 @@ ops["task.update"] = function(of, doc, p) {
     return ok({ id: task.id(), changes: changes, task: formatTask(task) });
 };
 
+// ── Task context & subtask trees (used by the AI verbs) ─────────────────
+
+var CONTEXT_SUBTREE_BUDGET = 200;
+var CONTEXT_SIBLING_LIMIT = 200;
+var CONTEXT_ANCESTOR_LIMIT = 20;
+
+// The existing subtree of a task, completed children included, formatted
+// recursively. `budget.remaining` caps the total node count so a huge
+// project cannot blow up the payload (or the Apple Event count).
+function formatContextSubtree(task, budget) {
+    var children = [], kids = [];
+    try { kids = task.tasks(); } catch(e) { kids = []; }
+    for (var i = 0; i < kids.length; i++) {
+        if (budget.remaining <= 0) break;
+        budget.remaining -= 1;
+        var node;
+        try { node = formatTask(kids[i]); } catch(e2) { continue; }
+        node.children = formatContextSubtree(kids[i], budget);
+        children.push(node);
+    }
+    return children;
+}
+
+// Compact { id, name, completed } rows for every task directly inside a
+// container (a task's `tasks`, a project's `tasks`, or `doc.inboxTasks`),
+// read as batches so this costs three Apple Events, not three per task.
+function compactSiblings(spec, excludeId) {
+    var out = [];
+    try {
+        var ids = spec.id(), names = spec.name(), completed = spec.completed();
+        for (var i = 0; i < ids.length && out.length < CONTEXT_SIBLING_LIMIT; i++) {
+            if (ids[i] === excludeId) continue;
+            out.push({ id: ids[i], name: names[i], completed: !!completed[i] });
+        }
+    } catch(e) {}
+    return out;
+}
+
+// Everything a prompt needs to know about one task: the task itself, its
+// ancestor chain (nearest first, the project's invisible root task
+// excluded), its project, its existing subtree, its siblings and every
+// tag name in the database.
+ops["task.context"] = function(of, doc, p) {
+    var r = findTaskFromParams(doc, p, { searchCompleted: p.searchCompleted });
+    if (r.error) return fail(r.error, r.candidates ? { candidates: r.candidates } : {});
+    var task = r.task;
+    var data = { task: formatTask(task), ancestors: [], project: null, children: [], siblings: [], tags: [] };
+
+    var project = null;
+    try { project = task.containingProject(); } catch(e) {}
+    var rootId = null;
+    if (project) {
+        try { data.project = formatProject(project); } catch(e) {}
+        try { rootId = project.rootTask().id(); } catch(e) {}
+    }
+
+    var parent = null;
+    try { parent = task.parentTask(); } catch(e) {}
+    var cursor = parent, depth = 0, parentIsRoot = false;
+    while (cursor && depth < CONTEXT_ANCESTOR_LIMIT) {
+        var cursorId = null; try { cursorId = cursor.id(); } catch(e) {}
+        if (rootId !== null && cursorId === rootId) { if (depth === 0) parentIsRoot = true; break; }
+        try { data.ancestors.push(formatTask(cursor)); } catch(e) { break; }
+        var next = null; try { next = cursor.parentTask(); } catch(e2) {}
+        cursor = next; depth += 1;
+    }
+
+    data.children = formatContextSubtree(task, { remaining: CONTEXT_SUBTREE_BUDGET });
+
+    var taskId = data.task.id;
+    if (parent && !parentIsRoot) data.siblings = compactSiblings(parent.tasks, taskId);
+    else if (project) data.siblings = compactSiblings(project.tasks, taskId);
+    else data.siblings = compactSiblings(doc.inboxTasks, taskId);
+
+    try { data.tags = doc.flattenedTags.name(); } catch(e) { data.tags = []; }
+    return ok(data);
+};
+
+// Create a whole subtask tree under one task (parentId) or at the top
+// level of a project (projectId) in a single round-trip. Items are created
+// in array order; `parentKey` names an earlier item to nest under. A failed
+// item is recorded and its descendants are skipped, never silently
+// reparented. Property application is best-effort per item (warnings), so
+// a bad tag or date never loses a task that was already created.
+ops["task.createTree"] = function(of, doc, p) {
+    if (!p.tasks || !p.tasks.length) return fail("tasks required");
+    if (p.parentId && p.projectId) return fail("Use either parentId or projectId, not both");
+    if (!p.parentId && !p.projectId) return fail("parentId or projectId required");
+
+    var target = null, parentInfo = null;
+    if (p.parentId) {
+        target = findTaskById(doc, p.parentId);
+        if (!target) return fail("Parent task not found by ID: " + p.parentId);
+        var tp = null; try { var tpp = target.containingProject(); if (tpp) tp = tpp.name(); } catch(e) {}
+        parentInfo = { id: target.id(), name: target.name(), project: tp || "Inbox" };
+    } else {
+        var projects = doc.flattenedProjects();
+        for (var pi = 0; pi < projects.length; pi++) { if (projects[pi].id() === p.projectId) { target = projects[pi]; break; } }
+        if (!target) return fail("Project not found with ID: " + p.projectId);
+        parentInfo = { id: target.id(), name: target.name(), project: target.name() };
+    }
+
+    var parentWarnings = [];
+    if (p.sequential === true || p.sequential === false) {
+        try { target.sequential = p.sequential; } catch(e) { parentWarnings.push("sequential apply failed: " + e.message); }
+    }
+
+    var byKey = {}, failed = {}, created = [];
+    for (var i = 0; i < p.tasks.length; i++) {
+        var item = p.tasks[i] || {};
+        var key = (item.key === null || item.key === undefined) ? String(i) : String(item.key);
+        var name = item.name;
+        if (!name) { failed[key] = true; created.push({ key: key, ok: false, name: "", error: "Task name required" }); continue; }
+        var container = target;
+        if (item.parentKey !== null && item.parentKey !== undefined) {
+            var pk = String(item.parentKey);
+            if (failed[pk]) { failed[key] = true; created.push({ key: key, ok: false, name: name, error: "Skipped: parent \"" + pk + "\" was not created" }); continue; }
+            container = byKey[pk];
+            if (!container) { failed[key] = true; created.push({ key: key, ok: false, name: name, error: "Unknown parentKey: " + pk }); continue; }
+        }
+        var task;
+        try {
+            var props = { name: name }; if (item.note) props.note = item.note;
+            task = of.Task(props);
+            container.tasks.push(task);
+        } catch(e) {
+            failed[key] = true;
+            created.push({ key: key, ok: false, name: name, error: e.message || String(e) });
+            continue;
+        }
+        var warnings = [];
+        try {
+            var changes = applyTaskProps(of, doc, task, {
+                estimate: item.estimate, tags: item.tags, flag: item.flag,
+                sequential: item.sequential === true, parallel: item.sequential === false,
+                due: item.due, defer: item.defer
+            });
+            warnings = extractWarnings(changes);
+        } catch(e2) {
+            warnings.push("property apply failed: " + (e2.message || String(e2)));
+        }
+        byKey[key] = task;
+        created.push({ key: key, ok: true, id: task.id(), name: task.name(), warnings: warnings });
+    }
+    return ok({ parent: parentInfo, created: created, warnings: parentWarnings });
+};
+
 ops["task.complete"] = function(of, doc, p) {
     if (!p.query && !p.id) return fail("Task query or id required");
     var findResult;

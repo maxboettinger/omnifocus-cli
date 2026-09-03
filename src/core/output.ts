@@ -10,9 +10,17 @@
  * live one level down in `./ui/` and know nothing about entities.
  */
 
+import type { Plan, PlanNode } from "./ai/plan.js";
 import { BridgeError, type CLIError } from "./errors.js";
 import { assignShortIds, peekShortId } from "./short-ids.js";
-import type { OFFolder, OFProject, OFProjectCompact, OFTask, OutputFormat } from "./types.js";
+import type {
+	CreateTreeResult,
+	OFFolder,
+	OFProject,
+	OFProjectCompact,
+	OFTask,
+	OutputFormat,
+} from "./types.js";
 import { bold, cyan, dim, green, red, yellow } from "./ui/colors.js";
 
 // ── Format detection ────────────────────────────────────────────────────────
@@ -172,12 +180,12 @@ export function formatTaskLine(task: OFTask, display: ShortIdDisplay = {}): stri
 
 	// Project (if not Inbox)
 	if (task.project && task.project !== "Inbox") {
-		parts.push(dim(`[${task.project}]`));
+		parts.push(dim(task.project));
 	}
 
 	// Tags
 	if (task.tags.length > 0) {
-		parts.push(cyan(task.tags.join(", ")));
+		parts.push(cyan(`[${task.tags.join(", ")}]`));
 	}
 
 	// Due date
@@ -438,6 +446,97 @@ export function outputMoved(task: OFTask, touched: readonly DateField[]): void {
 		const text = `${label}: ${value ? formatDateLong(value) : "cleared"}`;
 		console.log(isTouched ? `  ${green("●")} ${green(text)}` : `  ${dim("•")} ${dim(text)}`);
 	}
+}
+
+// ── AI plan rendering ───────────────────────────────────────────────────────
+
+function orderLabel(sequential: boolean): string {
+	return sequential ? "in order" : "any order";
+}
+
+function typeWord(sequential: boolean): string {
+	return sequential ? "sequential" : "parallel";
+}
+
+/** One line per plan node, indented by depth: `<key>  <name> <meta…>` plus a dim note line. */
+export function formatPlanTree(tree: PlanNode[], depth = 0, out: string[] = []): string[] {
+	const indent = "  ".repeat(depth);
+	for (const node of tree) {
+		const parts: string[] = [`${indent}${dim(node.key)}`];
+		if (node.flag) parts.push("⚑");
+		parts.push(node.name);
+		if (node.children.length > 0) parts.push(dim(`(${orderLabel(node.sequential)})`));
+		if (node.estimateMinutes) parts.push(dim(`${node.estimateMinutes}min`));
+		if (node.tags.length > 0) parts.push(cyan(`[${node.tags.join(", ")}]`));
+		if (node.due) parts.push(yellow(`due:${node.due}`));
+		if (node.defer) parts.push(dim(`defer:${node.defer}`));
+		out.push(parts.join(" "));
+		if (node.note) out.push(`${indent}${" ".repeat(node.key.length)}  ${dim(node.note)}`);
+		formatPlanTree(node.children, depth + 1, out);
+	}
+	return out;
+}
+
+export interface PlanTarget {
+	name: string;
+	/** The target's current type, to point out when the plan would change it. */
+	sequential: boolean;
+	/** Direct subtasks that already exist and would be governed by the new type. */
+	existingChildren: number;
+}
+
+/** Human preview of a breakdown plan before anything is applied. */
+export function outputPlanTree(target: PlanTarget, plan: Plan, tree: PlanNode[]): void {
+	console.log(
+		`${bold(`Plan for: ${target.name}`)} ${dim(`— subtasks ${orderLabel(plan.sequential)}`)}`,
+	);
+	if (plan.sequential !== target.sequential) {
+		const n = target.existingChildren;
+		const affected = n > 0 ? `; ${n} existing subtask${n === 1 ? "" : "s"} affected` : "";
+		console.log(
+			yellow(
+				`! Changes the task from ${typeWord(target.sequential)} to ${typeWord(plan.sequential)}${affected}`,
+			),
+		);
+	}
+	if (plan.summary) console.log(dim(plan.summary));
+	console.log("");
+	for (const line of formatPlanTree(tree)) console.log(line);
+	const estimate = plan.tasks.reduce((sum, t) => sum + (t.estimateMinutes ?? 0), 0);
+	const count = plan.tasks.length;
+	console.log(
+		dim(
+			`\n${count} task${count === 1 ? "" : "s"}${estimate > 0 ? `, ~${estimate} min total` : ""}`,
+		),
+	);
+	if (plan.questions.length > 0) {
+		console.log(yellow("\nOpen questions:"));
+		for (const q of plan.questions) console.log(`  ${yellow("•")} ${q}`);
+	}
+}
+
+export interface TreeResultSummary {
+	created: number;
+	failed: number;
+}
+
+/** Human report after `task.createTree`: per-item ✓/✗ lines, warnings on stderr. */
+export function outputTreeResult(result: CreateTreeResult): TreeResultSummary {
+	const created = result.created.filter((c) => c.ok).length;
+	const failed = result.created.length - created;
+	const total = result.created.length;
+	const head = `Created ${created} of ${total} subtask${total === 1 ? "" : "s"} under ${bold(result.parent.name)}`;
+	console.log(failed === 0 ? `${green("✓")} ${head}` : `${yellow("!")} ${head}`);
+	for (const item of result.created) {
+		if (item.ok) console.log(`  ${green("✓")} ${dim(item.key)}  ${item.name}`);
+		else
+			console.log(
+				`  ${red("✗")} ${dim(item.key)}  ${item.name}${item.error ? `: ${item.error}` : ""}`,
+			);
+		for (const warning of item.warnings ?? []) outputWarning(`${item.name}: ${warning}`);
+	}
+	for (const warning of result.warnings) outputWarning(`${result.parent.name}: ${warning}`);
+	return { created, failed };
 }
 
 // ── Date helpers ────────────────────────────────────────────────────────────

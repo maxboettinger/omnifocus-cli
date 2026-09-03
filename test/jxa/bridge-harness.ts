@@ -116,8 +116,22 @@ export function runBridgeArgs(
 	// OmniFocus constructors: `of.Task({...})`, `of.InboxTask({...})`. Each
 	// returns a mutable object with a fresh id so ops that create records can
 	// be exercised without a real document.
-	const construct = (props: Record<string, unknown>) =>
-		makeMutableJxaObject({ id: `new-${++created}`, completed: false, flagged: false, ...props });
+	const construct = (props: Record<string, unknown>) => {
+		const base = makeMutableJxaObject({
+			id: `new-${++created}`,
+			completed: false,
+			flagged: false,
+			...props,
+		});
+		// A created task can itself be a container: `task.tasks()` lists its
+		// children and `task.tasks.push(child)` nests one, as in JXA.
+		const children: unknown[] = [];
+		const tasks = Object.assign(() => children, { push: (t: unknown) => children.push(t) });
+		return new Proxy(base, {
+			get: (target, key, receiver) =>
+				key === "tasks" ? tasks : Reflect.get(target, key, receiver),
+		});
+	};
 	const app = {
 		Task: construct,
 		InboxTask: construct,

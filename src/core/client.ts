@@ -11,6 +11,7 @@ import type {
 	BridgeResponse,
 	BulkCreateInput,
 	BulkUpdateInput,
+	CreateTreeOptions,
 	FolderListOptions,
 	ForecastOptions,
 	InboxProcessOptions,
@@ -20,6 +21,7 @@ import type {
 	ProjectUpdateOptions,
 	ReviewOptions,
 	TagListOptions,
+	TaskContextOptions,
 	TaskCreateOptions,
 	TaskListOptions,
 	TaskNotificationAddOptions,
@@ -81,6 +83,18 @@ export function createClient(): OmniFocusClient {
 
 		async deleteTask(query: string, opts?: { id?: string; confirm?: boolean }) {
 			return executeBridge(cmd("task.delete", { query, ...opts }));
+		},
+
+		async getTaskContext(opts: TaskContextOptions) {
+			return executeBridge(cmd("task.context", opts as unknown as Record<string, unknown>), {
+				timeoutMs: 60_000,
+			});
+		},
+
+		async createTaskTree(opts: CreateTreeOptions) {
+			return executeBridge(cmd("task.createTree", opts as unknown as Record<string, unknown>), {
+				timeoutMs: 120_000,
+			});
 		},
 
 		async listTaskNotifications(opts: TaskNotificationListOptions) {

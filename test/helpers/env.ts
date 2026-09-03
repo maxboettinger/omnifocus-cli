@@ -71,3 +71,25 @@ export async function withStdin<T>(value: unknown, fn: () => T | Promise<T>): Pr
 		Object.defineProperty(process, "stdin", { value: original, configurable: true });
 	}
 }
+
+/**
+ * Divert a stream's `write` into `sink` for the duration of `fn` — for code
+ * that writes to `process.stdout`/`process.stderr` directly (streamed model
+ * output, readline prompts) rather than through console.log/error.
+ */
+export async function withStreamWrite<T>(
+	stream: NodeJS.WriteStream,
+	sink: (chunk: string) => void,
+	fn: () => T | Promise<T>,
+): Promise<T> {
+	const original = stream.write;
+	stream.write = ((chunk: unknown) => {
+		sink(String(chunk));
+		return true;
+	}) as typeof stream.write;
+	try {
+		return await fn();
+	} finally {
+		stream.write = original;
+	}
+}

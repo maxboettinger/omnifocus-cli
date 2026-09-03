@@ -12,27 +12,34 @@
 
 import { Readable } from "node:stream";
 import { Command } from "commander";
+import type { AIClient } from "../../src/core/ai/types.js";
 import type { OmniFocusClient } from "../../src/core/types.js";
+import { type FakeAI, createFakeAI } from "../fixtures/fake-ai.js";
 import { createMockClient } from "../fixtures/mock-client.js";
 import { withStdin } from "./env.js";
 
+export type Setup = (program: Command, client: OmniFocusClient, ai: AIClient) => void;
+
 export interface RunResult {
 	client: OmniFocusClient;
+	ai: FakeAI;
 	stdout: string[];
 	stderr: string[];
 	exitCode: number | undefined;
 }
 
 export async function runCommand(
-	setup: (program: Command, client: OmniFocusClient) => void,
+	setup: Setup,
 	argv: string[],
 	client?: OmniFocusClient,
+	ai?: FakeAI,
 ): Promise<RunResult> {
 	const c = client ?? createMockClient();
+	const fakeAi = ai ?? createFakeAI();
 	const program = new Command();
 	// Mirror the real program: --json is a root option only (src/program.ts).
 	program.name("of").option("--json", "Output in JSON format").exitOverride();
-	setup(program, c);
+	setup(program, c, fakeAi);
 
 	const stdout: string[] = [];
 	const stderr: string[] = [];
@@ -56,15 +63,18 @@ export async function runCommand(
 		console.error = origErr;
 		process.exit = origExit;
 	}
-	return { client: c, stdout, stderr, exitCode };
+	return { client: c, ai: fakeAi, stdout, stderr, exitCode };
 }
 
 /** `runCommand` with `stdinText` piped in as the command's stdin. */
 export function runCommandWithStdin(
-	setup: (program: Command, client: OmniFocusClient) => void,
+	setup: Setup,
 	argv: string[],
 	stdinText: string,
 	client?: OmniFocusClient,
+	ai?: FakeAI,
 ): Promise<RunResult> {
-	return withStdin(Readable.from([Buffer.from(stdinText)]), () => runCommand(setup, argv, client));
+	return withStdin(Readable.from([Buffer.from(stdinText)]), () =>
+		runCommand(setup, argv, client, ai),
+	);
 }

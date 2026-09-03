@@ -29,7 +29,7 @@ export interface PlanTask {
 
 export interface Plan {
 	summary: string;
-	/** Whether the tasks created directly under the target must be done in order. */
+	/** The target's own type after applying: its direct children (new and existing) in order or not. */
 	sequential: boolean;
 	tasks: PlanTask[];
 	questions: string[];
@@ -84,7 +84,8 @@ export const PLAN_SCHEMA: Record<string, unknown> = {
 		summary: { type: "string", description: "One sentence on the approach." },
 		sequential: {
 			type: "boolean",
-			description: "Whether the new top-level tasks must be done in order.",
+			description:
+				"The target task's own type: true if its direct children (new and existing) must be done in order.",
 		},
 		tasks: { type: "array", items: TASK_SCHEMA },
 		questions: { type: "array", items: { type: "string" } },

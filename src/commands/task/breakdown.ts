@@ -92,13 +92,24 @@ export function registerBreakdownCommand(
 					})}\n\nBreak the target task down into nano tasks now.`,
 				);
 				const model = ctx.opts.model as string | undefined;
-				const generate = (label: string): Promise<StructuredResult<Plan>> =>
-					withSpinner(label, () =>
+				// Ctrl-C while the model is working aborts the request cleanly
+				// (surfacing as AIError "aborted") instead of killing the process mid-spinner.
+				const generate = (label: string): Promise<StructuredResult<Plan>> => {
+					const controller = new AbortController();
+					const onSigint = () => controller.abort();
+					process.once("SIGINT", onSigint);
+					return withSpinner(label, () =>
 						ai.structured(
-							{ messages: convo.messages, model, temperature: TEMPERATURE },
+							{
+								messages: convo.messages,
+								model,
+								temperature: TEMPERATURE,
+								signal: controller.signal,
+							},
 							PLAN_STRUCTURED,
 						),
-					);
+					).finally(() => process.off("SIGINT", onSigint));
+				};
 				const applyPlan = (plan: Plan): Promise<CreateTreeResult> =>
 					client
 						.createTaskTree(planToTreeOptions(target.id, plan))
@@ -117,7 +128,15 @@ export function registerBreakdownCommand(
 				const prompter = createPrompter({ output: process.stderr });
 				try {
 					for (;;) {
-						outputPlanTree(target.name, result.value, buildPlanTree(result.value));
+						outputPlanTree(
+							{
+								name: target.name,
+								sequential: context.task.sequential,
+								existingChildren: context.children.length,
+							},
+							result.value,
+							buildPlanTree(result.value),
+						);
 						let choice = apply ? "a" : null;
 						if (!apply) {
 							console.log("");

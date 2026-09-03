@@ -96,6 +96,27 @@ describe("task.createTree", () => {
 		expect(parent.sequential).toBe(true);
 	});
 
+	test("the target's sequential flag is set even when it already has children", () => {
+		// The type is a whole-container property: pre-existing children are governed by
+		// it too, which is why the CLI preview points such a change out before applying.
+		const pushed: Created[] = [];
+		const parent = target(pushed);
+		parent.sequential = false;
+		const response = runBridge(docWith(parent), "task.createTree", {
+			parentId: "p1",
+			sequential: true,
+			tasks: [{ key: "1", parentKey: null, name: "New step" }],
+		});
+		expect(response.ok).toBe(true);
+		expect(parent.sequential).toBe(true);
+		// Omitting the flag leaves the target untouched.
+		runBridge(docWith(parent), "task.createTree", {
+			parentId: "p1",
+			tasks: [{ key: "1", parentKey: null, name: "Another" }],
+		});
+		expect(parent.sequential).toBe(true);
+	});
+
 	test("skips the descendants of a failed item instead of reparenting them", () => {
 		const pushed: Created[] = [];
 		const response = runBridge(docWith(target(pushed)), "task.createTree", {

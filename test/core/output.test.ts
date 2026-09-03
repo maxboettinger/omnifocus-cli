@@ -547,13 +547,22 @@ describe("AI plan rendering", () => {
 	});
 
 	test("outputPlanTree prints header, tree, totals and open questions", () => {
-		const lines = capture(() => outputPlanTree("Buy groceries", plan, buildPlanTree(plan)));
-		expect(lines[0]).toBe("Plan for: Buy groceries — new subtasks in order");
+		const target = { name: "Buy groceries", sequential: true, existingChildren: 0 };
+		const lines = capture(() => outputPlanTree(target, plan, buildPlanTree(plan)));
+		expect(lines[0]).toBe("Plan for: Buy groceries — subtasks in order");
 		expect(lines[1]).toBe("Two steps.");
 		expect(lines).toContain("1 Open the app 1min");
 		expect(lines).toContain("\n3 tasks, ~6 min total");
 		expect(lines).toContain("\nOpen questions:");
 		expect(lines).toContain("  • Which store?");
+	});
+
+	test("outputPlanTree warns when the plan changes the target's type", () => {
+		const target = { name: "Buy groceries", sequential: false, existingChildren: 2 };
+		const lines = capture(() => outputPlanTree(target, plan, buildPlanTree(plan)));
+		expect(lines[1]).toBe(
+			"! Changes the task from parallel to sequential; 2 existing subtasks affected",
+		);
 	});
 
 	test("outputTreeResult reports per-item outcome and counts", () => {

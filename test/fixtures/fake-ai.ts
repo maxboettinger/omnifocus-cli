@@ -6,7 +6,6 @@
  * test fixture that would not survive the production path fails loudly.
  */
 
-import { Conversation } from "../../src/core/ai/conversation.js";
 import {
 	type AIClient,
 	AIError,
@@ -29,6 +28,17 @@ export interface FakeAI extends AIClient {
 }
 
 export const FAKE_MODEL = "fake/model";
+/** A scripted reply that never arrives: the call resolves only by aborting `req.signal`. */
+export const FAKE_HANG = "\u0000hang";
+
+function hangUntilAborted(signal: AbortSignal | undefined): Promise<never> {
+	return new Promise((_resolve, reject) => {
+		const abort = () => reject(new AIError("aborted", "Request aborted"));
+		if (!signal) throw new Error("FAKE_HANG needs a request with an AbortSignal");
+		if (signal.aborted) abort();
+		else signal.addEventListener("abort", abort, { once: true });
+	});
+}
 
 export function createFakeAI(script: FakeAIScript = {}): FakeAI {
 	const replies = [...(script.replies ?? [])];
@@ -53,6 +63,7 @@ export function createFakeAI(script: FakeAIScript = {}): FakeAI {
 		async stream(req, onDelta) {
 			requests.push(req);
 			const content = next(replies, "reply");
+			if (content === FAKE_HANG) return hangUntilAborted(req.signal);
 			onDelta(content);
 			return { content, model: FAKE_MODEL };
 		},
@@ -77,6 +88,3 @@ export function lastRequest(ai: FakeAI): ChatRequest {
 	if (!last) throw new Error("fake AI received no requests");
 	return last;
 }
-
-// Keep the Conversation import meaningful for fixture authors building histories.
-export { Conversation };

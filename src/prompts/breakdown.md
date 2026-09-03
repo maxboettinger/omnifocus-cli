@@ -28,9 +28,12 @@ thinking.
    parent task and put the sub-steps under it (`parentKey`). Nest as deep as needed;
    there is no limit. A parent's own `sequential` says whether its children must be done
    in order.
-8. **Set `sequential` deliberately.** Top-level `sequential` describes the order of the
-   tasks you create under the target. `true` when steps depend on each other (usual for
-   a process), `false` when they can be done in any order (a checklist).
+8. **Set `sequential` deliberately.** Top-level `sequential` sets the target task's own
+   type, which governs *all* of its direct children — the ones you create and any that
+   already exist (they are listed in the context). `true` when the steps depend on each
+   other (usual for a process), `false` when they can be done in any order (a checklist).
+   If existing subtasks would be wrongly blocked by a change, keep the target's current
+   type and nest your ordered steps under a new parent task with its own `sequential`.
 9. **Respect what exists.** Existing subtasks and completed work are in the context: do
    not recreate them, do not duplicate completed steps, and continue from where the
    person actually is. Do not restate the target task itself as a nano task.

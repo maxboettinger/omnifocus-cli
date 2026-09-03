@@ -6,7 +6,7 @@
 import { describe, expect, test } from "bun:test";
 import { PassThrough } from "node:stream";
 import { registerTaskCommands } from "../../src/commands/task/index.js";
-import { type FakeAI, createFakeAI } from "../fixtures/fake-ai.js";
+import { FAKE_HANG, type FakeAI, createFakeAI } from "../fixtures/fake-ai.js";
 import { createMockClient } from "../fixtures/mock-client.js";
 import {
 	MOCK_CREATE_TREE_RESULT,
@@ -257,6 +257,18 @@ describe("task breakdown", () => {
 		);
 	});
 
+	test("human mode: the preview points out a change of the target's own type", async () => {
+		// MOCK_TASK is parallel with one existing child; PLAN makes it sequential.
+		const { stdout } = await runInteractive(
+			["task", "breakdown", "Buy groceries"],
+			["q\n"],
+			createFakeAI({ plans: [PLAN] }),
+		);
+		expect(stdout.join("\n")).toContain(
+			"! Changes the task from parallel to sequential; 1 existing subtask affected",
+		);
+	});
+
 	test("human mode: quitting at the preview changes nothing", async () => {
 		const { client, stdout } = await runInteractive(
 			["task", "breakdown", "Buy groceries"],
@@ -334,6 +346,22 @@ describe("task why", () => {
 		expect(second.map((m) => m.role)).toEqual(["system", "user", "assistant", "user"]);
 		expect(second[2]?.content).toBe("What is the first step?");
 		expect(second[3]?.content).toBe("Going to the store");
+	});
+
+	test("Ctrl-C while the coach is talking aborts the request and ends the session", async () => {
+		const ai = createFakeAI({ replies: [FAKE_HANG] });
+		// The hung stream never prompts, so emit SIGINT once the request is in flight.
+		const poke = setInterval(() => {
+			if (ai.requests.length > 0) {
+				clearInterval(poke);
+				process.emit("SIGINT");
+			}
+		}, 2);
+		const { stdout, exitCode } = await runInteractive(["task", "why", "Buy groceries"], [], ai);
+		clearInterval(poke);
+		expect(exitCode).toBeUndefined();
+		expect(stdout.join("\n")).toContain("Session ended.");
+		expect(ai.requests).toHaveLength(1);
 	});
 
 	test("without a ref it opens a general session and never touches OmniFocus", async () => {

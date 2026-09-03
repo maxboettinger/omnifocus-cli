@@ -454,6 +454,10 @@ function orderLabel(sequential: boolean): string {
 	return sequential ? "in order" : "any order";
 }
 
+function typeWord(sequential: boolean): string {
+	return sequential ? "sequential" : "parallel";
+}
+
 /** One line per plan node, indented by depth: `<key>  <name> <meta…>` plus a dim note line. */
 export function formatPlanTree(tree: PlanNode[], depth = 0, out: string[] = []): string[] {
 	const indent = "  ".repeat(depth);
@@ -473,11 +477,28 @@ export function formatPlanTree(tree: PlanNode[], depth = 0, out: string[] = []):
 	return out;
 }
 
+export interface PlanTarget {
+	name: string;
+	/** The target's current type, to point out when the plan would change it. */
+	sequential: boolean;
+	/** Direct subtasks that already exist and would be governed by the new type. */
+	existingChildren: number;
+}
+
 /** Human preview of a breakdown plan before anything is applied. */
-export function outputPlanTree(targetName: string, plan: Plan, tree: PlanNode[]): void {
+export function outputPlanTree(target: PlanTarget, plan: Plan, tree: PlanNode[]): void {
 	console.log(
-		`${bold(`Plan for: ${targetName}`)} ${dim(`— new subtasks ${orderLabel(plan.sequential)}`)}`,
+		`${bold(`Plan for: ${target.name}`)} ${dim(`— subtasks ${orderLabel(plan.sequential)}`)}`,
 	);
+	if (plan.sequential !== target.sequential) {
+		const n = target.existingChildren;
+		const affected = n > 0 ? `; ${n} existing subtask${n === 1 ? "" : "s"} affected` : "";
+		console.log(
+			yellow(
+				`! Changes the task from ${typeWord(target.sequential)} to ${typeWord(plan.sequential)}${affected}`,
+			),
+		);
+	}
 	if (plan.summary) console.log(dim(plan.summary));
 	console.log("");
 	for (const line of formatPlanTree(tree)) console.log(line);

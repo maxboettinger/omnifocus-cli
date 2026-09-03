@@ -10,6 +10,7 @@ import { registerSearchCommand } from "./search.js";
 import { registerShowCommand } from "./show.js";
 import { registerTagCommand } from "./tag.js";
 import { registerUpdateCommand } from "./update.js";
+import { registerWhyCommand } from "./why.js";
 
 export const registerTaskCommands = defineNoun({
 	name: "task",
@@ -27,6 +28,7 @@ export const registerTaskCommands = defineNoun({
 		registerDeleteCommand,
 		registerNotificationCommands,
 		registerBreakdownCommand,
+		registerWhyCommand,
 	],
 	verbAliases: {
 		add: "a",
@@ -40,5 +42,6 @@ export const registerTaskCommands = defineNoun({
 		delete: "d",
 		notification: "n",
 		breakdown: "b",
+		why: "w",
 	},
 });

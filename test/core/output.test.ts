@@ -2,9 +2,11 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { buildPlanTree } from "../../src/core/ai/plan.js";
 import { BridgeError } from "../../src/core/errors.js";
 import {
 	type BatchSummary,
+	formatPlanTree,
 	formatProjectDetail,
 	formatProjectLine,
 	formatTaskDetail,
@@ -12,7 +14,9 @@ import {
 	outputBatchSummary,
 	outputEntityAction,
 	outputError,
+	outputPlanTree,
 	outputTaskList,
+	outputTreeResult,
 	outputWarning,
 	outputWarnings,
 	resolveFormat,
@@ -470,5 +474,117 @@ describe("outputBatchSummary", () => {
 		expect(text).toContain("3: boom");
 		expect(text).toContain("Total: 3 items");
 		expect(err.join("\n")).toContain("A: w");
+	});
+});
+
+describe("AI plan rendering", () => {
+	const plan = {
+		summary: "Two steps.",
+		sequential: true,
+		questions: ["Which store?"],
+		tasks: [
+			{
+				key: "1",
+				parentKey: null,
+				name: "Open the app",
+				note: "",
+				estimateMinutes: 1,
+				tags: [],
+				flag: false,
+				sequential: false,
+				due: null,
+				defer: null,
+			},
+			{
+				key: "2",
+				parentKey: null,
+				name: "Add items",
+				note: "Check the fridge",
+				estimateMinutes: 5,
+				tags: ["errand"],
+				flag: true,
+				sequential: true,
+				due: "tomorrow",
+				defer: null,
+			},
+			{
+				key: "2.1",
+				parentKey: "2",
+				name: "Look in the fridge",
+				note: "",
+				estimateMinutes: null,
+				tags: [],
+				flag: false,
+				sequential: false,
+				due: null,
+				defer: "today",
+			},
+		],
+	};
+
+	function capture(fn: () => void): string[] {
+		const lines: string[] = [];
+		const orig = console.log;
+		console.log = (...args: unknown[]) => {
+			lines.push(args.map(String).join(" "));
+		};
+		try {
+			withEnv({ NO_COLOR: "1" }, fn);
+		} finally {
+			console.log = orig;
+		}
+		return lines;
+	}
+
+	test("formatPlanTree indents children and shows order, estimate, tags, dates", () => {
+		const lines = withEnv({ NO_COLOR: "1" }, () => formatPlanTree(buildPlanTree(plan)));
+		expect(lines).toEqual([
+			"1 Open the app 1min",
+			"2 ⚑ Add items (in order) 5min [errand] due:tomorrow",
+			"   Check the fridge",
+			"  2.1 Look in the fridge defer:today",
+		]);
+	});
+
+	test("outputPlanTree prints header, tree, totals and open questions", () => {
+		const lines = capture(() => outputPlanTree("Buy groceries", plan, buildPlanTree(plan)));
+		expect(lines[0]).toBe("Plan for: Buy groceries — new subtasks in order");
+		expect(lines[1]).toBe("Two steps.");
+		expect(lines).toContain("1 Open the app 1min");
+		expect(lines).toContain("\n3 tasks, ~6 min total");
+		expect(lines).toContain("\nOpen questions:");
+		expect(lines).toContain("  • Which store?");
+	});
+
+	test("outputTreeResult reports per-item outcome and counts", () => {
+		const stderr: string[] = [];
+		const origErr = console.error;
+		console.error = (...args: unknown[]) => {
+			stderr.push(args.map(String).join(" "));
+		};
+		let summary: { created: number; failed: number } | undefined;
+		const lines = capture(() => {
+			summary = outputTreeResult({
+				parent: { id: "p", name: "Buy groceries", project: "Errands" },
+				created: [
+					{
+						key: "1",
+						ok: true,
+						id: "n1",
+						name: "Open the app",
+						warnings: ["tag failed (x): nope"],
+					},
+					{ key: "2", ok: false, name: "Add items", error: "boom" },
+				],
+				warnings: ["sequential apply failed: locked"],
+			});
+		});
+		console.error = origErr;
+		expect(summary).toEqual({ created: 1, failed: 1 });
+		expect(lines[0]).toBe("! Created 1 of 2 subtasks under Buy groceries");
+		expect(lines[1]).toBe("  ✓ 1  Open the app");
+		expect(lines[2]).toBe("  ✗ 2  Add items: boom");
+		expect(stderr.join("\n")).toContain("Open the app: tag failed (x): nope");
+		expect(stderr.join("\n")).toContain("Buy groceries: sequential apply failed: locked");
 	});
 });

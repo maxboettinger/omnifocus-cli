@@ -82,7 +82,7 @@ async function runInteractive(
 							process.stderr,
 							(chunk) => {
 								stderrWrites.push(chunk);
-								if (/[:?] $/.test(chunk)) feed();
+								if (/[:?>] $/.test(chunk)) feed();
 							},
 							() => runCommand(registerTaskCommands, argv, client, ai),
 						),
@@ -292,5 +292,55 @@ describe("task breakdown", () => {
 		);
 		expect(client.createTaskTree).toHaveBeenCalledTimes(1);
 		expect(stdout.join("\n")).toContain("Created 2 of 2 subtasks");
+	});
+});
+
+describe("task why", () => {
+	test("refuses to run in JSON mode or without a terminal", async () => {
+		const ai = createFakeAI({ replies: ["Q?"] });
+		const json = await runCommand(registerTaskCommands, ["task", "why", "--json"], undefined, ai);
+		expect(json.exitCode).toBe(1);
+		expect(JSON.parse(json.stderr[0] as string).error).toContain("interactive session");
+		const piped = await withEnv(HUMAN_ENV, () =>
+			withStreamTTY(process.stdout, true, () =>
+				withStdin({ isTTY: false }, () =>
+					runCommand(registerTaskCommands, ["task", "why", "Buy groceries"], undefined, ai),
+				),
+			),
+		);
+		expect(piped.exitCode).toBe(1);
+		expect(ai.requests).toEqual([]);
+	});
+
+	test("runs turn by turn with the task context until the user quits", async () => {
+		const ai = createFakeAI({ replies: ["What is the first step?", "What makes that hard?"] });
+		const { client, stdout, stdoutWrites } = await runInteractive(
+			["task", "why", "Buy groceries", "--context", "It has been on my list for weeks"],
+			["Going to the store\n", "\x1b"],
+			ai,
+		);
+		expect(client.getTaskContext).toHaveBeenCalledWith({ query: "Buy groceries" });
+		const streamed = stdoutWrites.join("");
+		expect(streamed).toContain("What is the first step?");
+		expect(streamed).toContain("What makes that hard?");
+		expect(stdout.join("\n")).toContain("Why: Buy groceries");
+		expect(stdout.join("\n")).toContain("Session ended.");
+		expect(ai.requests).toHaveLength(2);
+		expect(ai.requests[0]?.temperature).toBe(0.7);
+		expect(ai.requests[0]?.messages[0]?.content).toContain("five whys");
+		expect(ai.requests[0]?.messages[1]?.content).toContain("## Target task\n- Name: Buy groceries");
+		expect(ai.requests[0]?.messages[1]?.content).toContain("It has been on my list for weeks");
+		const second = ai.requests[1]?.messages ?? [];
+		expect(second.map((m) => m.role)).toEqual(["system", "user", "assistant", "user"]);
+		expect(second[2]?.content).toBe("What is the first step?");
+		expect(second[3]?.content).toBe("Going to the store");
+	});
+
+	test("without a ref it opens a general session and never touches OmniFocus", async () => {
+		const ai = createFakeAI({ replies: ["What are you avoiding?"] });
+		const { client, stdout } = await runInteractive(["task", "why"], ["/quit\n"], ai);
+		expect(client.getTaskContext).not.toHaveBeenCalled();
+		expect(ai.requests[0]?.messages[1]?.content).toContain("No specific task was given");
+		expect(stdout.join("\n")).toContain("Session ended.");
 	});
 });

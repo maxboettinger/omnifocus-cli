@@ -26,11 +26,17 @@ async function speak(
 	const controller = new AbortController();
 	const onSigint = () => controller.abort();
 	process.once("SIGINT", onSigint);
-	process.stdout.write(cyan("◆ "));
+	let started = false;
 	try {
 		const result = await ai.stream(
 			{ messages: convo.messages, model, temperature: TEMPERATURE, signal: controller.signal },
 			(delta) => {
+				// The marker goes out with the first token, so a request that fails
+				// before producing anything leaves no dangling prefix on the line.
+				if (!started) {
+					started = true;
+					process.stdout.write(cyan("◆ "));
+				}
 				process.stdout.write(delta);
 			},
 		);
@@ -38,7 +44,7 @@ async function speak(
 		return result;
 	} catch (error) {
 		if (error instanceof AIError && error.kind === "aborted") {
-			process.stdout.write("\n");
+			if (started) process.stdout.write("\n");
 			return null;
 		}
 		throw error;

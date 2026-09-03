@@ -104,7 +104,9 @@ describe("validatePlan", () => {
 			'task "1": defer must be a string or null',
 		]);
 		expect(errorsOf(plan([task({ key: "" })]))[0]).toBe("tasks[0].key must be a non-empty string");
-		expect(errorsOf(plan(["not a task" as unknown as Record<string, unknown>]))).toEqual(["tasks[0] must be an object"]);
+		expect(errorsOf(plan(["not a task" as unknown as Record<string, unknown>]))).toEqual([
+			"tasks[0] must be an object",
+		]);
 	});
 });
 

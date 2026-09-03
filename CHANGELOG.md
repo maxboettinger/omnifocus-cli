@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `task search --id <id>` looks a single task up by id instead of by keyword, accepting
+  either a short id from a listing or a raw OmniFocus id. Output stays search's list
+  format (a one-element array in `--json`), and unlike a keyword search it finds
+  completed tasks. `task search` now requires exactly one of `<query>` or `--id`.
+
 ## [0.1.0] - 2026-09-03
 
 First public release of `of`, a command-line interface for OmniFocus on macOS.

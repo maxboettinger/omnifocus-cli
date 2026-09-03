@@ -757,6 +757,64 @@ describe("task list limit notice", () => {
 	});
 });
 
+// ── Task search by id ───────────────────────────────────────────────────────
+
+describe("task search --id", () => {
+	test("looks the task up by id instead of searching", async () => {
+		const { client, stdout } = await runCommand(registerTaskCommands, [
+			"task",
+			"search",
+			"--id",
+			"eQxJnR5YSeK",
+			"--json",
+		]);
+		expect(client.searchTasks).not.toHaveBeenCalled();
+		expect(client.getTask).toHaveBeenCalledTimes(1);
+		const [query] = (client.getTask as ReturnType<typeof mock>).mock.calls[0] as [string];
+		expect(query).toBe("eQxJnR5YSeK");
+		expect(JSON.parse(stdout.join("\n"))).toEqual([MOCK_TASK]);
+	});
+
+	test("rejects --id combined with a query", async () => {
+		const { client, stderr, exitCode } = await runCommand(registerTaskCommands, [
+			"task",
+			"search",
+			"groceries",
+			"--id",
+			"eQxJnR5YSeK",
+			"--json",
+		]);
+		expect(client.getTask).not.toHaveBeenCalled();
+		expect(client.searchTasks).not.toHaveBeenCalled();
+		expect(exitCode).toBe(1);
+		expect(stderr.join("\n")).toContain("--id");
+	});
+
+	test("rejects a call with neither a query nor --id", async () => {
+		const { client, stderr, exitCode } = await runCommand(registerTaskCommands, [
+			"task",
+			"search",
+			"--json",
+		]);
+		expect(client.searchTasks).not.toHaveBeenCalled();
+		expect(exitCode).toBe(1);
+		expect(stderr.join("\n")).toContain("--id");
+	});
+
+	test("prints no limit notice for a single-task id lookup", async () => {
+		const { stderr } = await runCommand(registerTaskCommands, [
+			"task",
+			"search",
+			"--id",
+			"eQxJnR5YSeK",
+			"--limit",
+			"1",
+			"--json",
+		]);
+		expect(stderr.join("\n")).not.toContain("limit");
+	});
+});
+
 // ── Task search limit notice ────────────────────────────────────────────────
 
 describe("task search limit notice", () => {
@@ -979,6 +1037,31 @@ describe("short id references", () => {
 		const [query, opts] = firstCall(client.completeTask);
 		expect(query).toBe("1");
 		expect((opts as Record<string, unknown>).id).toBe("ofIdAAAAAAA");
+	});
+
+	test("task search --id resolves a numeric short id to the OmniFocus id", async () => {
+		seed("ofIdAAAAAAA");
+		const { client } = await runCommand(registerTaskCommands, [
+			"task",
+			"search",
+			"--id",
+			"1",
+			"--json",
+		]);
+		const [query] = firstCall(client.getTask);
+		expect(query).toBe("ofIdAAAAAAA");
+	});
+
+	test("task search --id passes an unknown number through as an id", async () => {
+		const { client } = await runCommand(registerTaskCommands, [
+			"task",
+			"search",
+			"--id",
+			"99",
+			"--json",
+		]);
+		const [query] = firstCall(client.getTask);
+		expect(query).toBe("99");
 	});
 
 	test("task complete leaves an unknown number as a name query", async () => {

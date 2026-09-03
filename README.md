@@ -101,6 +101,7 @@ of t complete 42 127             # several at once
 of t move 42 tomorrow            # short for `of task move 42 tomorrow`
 of task update 42 --due 2026-04-01
 of task delete 127 --confirm
+of task search --id 42           # `task search --id` takes a number too
 ```
 
 A number always refers to the same task once assigned, and numbers are never reused — a
@@ -131,6 +132,7 @@ Built for both humans and scripts/agents:
 of task add "Buy groceries" --due 2026-03-05 --flag --tag errand
 of task list --filter flagged --limit 10
 of task search "groceries"
+of task search --id 42                           # look one task up by short id or OmniFocus id
 of task show "Buy groceries"
 of task update --id abc123 --due 2026-04-01
 of task complete "Buy groceries"
@@ -286,7 +288,7 @@ of collect --days 14          # recently completed tasks
 | `task complete` | Complete (or reopen with `--incomplete`) one or more tasks |
 | `task move` | Reschedule a task's due (positional), `--defer`, `--planned` dates |
 | `task delete` | Permanently delete a task (requires `--confirm`) |
-| `task search` | Search tasks by name |
+| `task search` | Search tasks by name, or look one up with `--id` |
 | `task show` | Show task details |
 | `task notification list` | List notifications on a task |
 | `task notification add` | Add a notification to a task |

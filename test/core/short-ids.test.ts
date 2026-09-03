@@ -6,6 +6,7 @@ import {
 	assignShortIds,
 	lookupShortId,
 	peekShortId,
+	resolveTaskId,
 	resolveTaskRef,
 } from "../../src/core/short-ids.js";
 
@@ -192,5 +193,32 @@ describe("resolveTaskRef", () => {
 			query: undefined,
 			id: "explicit-id",
 		});
+	});
+});
+
+// ── resolveTaskId ───────────────────────────────────────────────────────────
+
+describe("resolveTaskId", () => {
+	test("maps an all-digit id with a known alias to the OmniFocus id", () => {
+		const cachePath = makeCachePath();
+		assignShortIds(["ofIdAAAAAAA"], { cachePath });
+		expect(resolveTaskId("1", { cachePath })).toBe("ofIdAAAAAAA");
+	});
+
+	test("passes an all-digit id with no cached alias through unchanged", () => {
+		const cachePath = makeCachePath();
+		expect(resolveTaskId("42", { cachePath })).toBe("42");
+	});
+
+	test("passes a raw OmniFocus id through unchanged", () => {
+		const cachePath = makeCachePath();
+		assignShortIds(["ofIdAAAAAAA"], { cachePath });
+		expect(resolveTaskId("eQxJnR5YSeK", { cachePath })).toBe("eQxJnR5YSeK");
+	});
+
+	test("never mints an alias for the id it is given", () => {
+		const cachePath = makeCachePath();
+		resolveTaskId("ofIdAAAAAAA", { cachePath });
+		expect(peekShortId("ofIdAAAAAAA", { cachePath })).toBeUndefined();
 	});
 });

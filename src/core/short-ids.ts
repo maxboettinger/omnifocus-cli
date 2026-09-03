@@ -150,6 +150,12 @@ export function lookupShortId(alias: number, opts: ShortIdOptions = {}): string 
 	return undefined;
 }
 
+/** An all-digit value with a cached alias → its OmniFocus id, else undefined. */
+function aliasToOfId(value: string, opts: ShortIdOptions): string | undefined {
+	if (!/^\d+$/.test(value)) return undefined;
+	return lookupShortId(Number.parseInt(value, 10), opts);
+}
+
 /**
  * Turn a positional task reference into `{ query, id }`. An explicit --id
  * wins; otherwise an all-digit ref matching a cached alias resolves to that
@@ -161,9 +167,20 @@ export function resolveTaskRef(
 	opts: ShortIdOptions = {},
 ): TaskRef {
 	if (explicitId) return { query: ref, id: explicitId };
-	if (ref && /^\d+$/.test(ref)) {
-		const ofId = lookupShortId(Number.parseInt(ref, 10), opts);
+	if (ref) {
+		const ofId = aliasToOfId(ref, opts);
 		if (ofId) return { query: ref, id: ofId };
 	}
 	return { query: ref };
+}
+
+/**
+ * Normalise an id the user typed into an OmniFocus id: a short alias becomes
+ * the task's real id, anything else (including a number with no cached alias)
+ * is already one and passes through, so the bridge reports it as not found.
+ * Unlike `resolveTaskRef` there is no name-query fallback — the caller has
+ * said this is an id — and no alias is ever minted.
+ */
+export function resolveTaskId(id: string, opts: ShortIdOptions = {}): string {
+	return aliasToOfId(id, opts) ?? id;
 }

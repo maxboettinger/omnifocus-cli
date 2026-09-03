@@ -5,6 +5,7 @@ import {
 	setProgressEnabled,
 	withProgress,
 } from "../../../src/core/ui/progress.js";
+import { withSpinner } from "../../../src/core/ui/progress.js";
 import { createMockClient } from "../../fixtures/mock-client.js";
 import { MOCK_TASK, errorResponse, successResponse } from "../../fixtures/mock-responses.js";
 import { withEnv } from "../../helpers/env.js";
@@ -172,5 +173,42 @@ describe("withProgress", () => {
 
 		expect(result).toBe(failure);
 		expect(stream.writes.join("").endsWith(SHOW_CURSOR)).toBe(true);
+	});
+});
+
+describe("withSpinner", () => {
+	test("returns the function's result without drawing when disabled", async () => {
+		const stream = fakeStream();
+		const result = await withEnv(INTERACTIVE_ENV, () =>
+			withSpinner("Thinking…", async () => 42, stream as never),
+		);
+		expect(result).toBe(42);
+		expect(stream.writes).toEqual([]);
+	});
+
+	test("draws the label while the function runs and clears it afterwards", async () => {
+		setProgressEnabled(true);
+		const stream = fakeStream();
+		const result = await withEnv(INTERACTIVE_ENV, () =>
+			withSpinner(
+				"Thinking…",
+				() => new Promise<string>((resolve) => setTimeout(() => resolve("done"), 20)),
+				stream as never,
+			),
+		);
+		expect(result).toBe("done");
+		expect(stream.writes.join("")).toContain("Thinking…");
+		expect(stream.writes.join("")).toContain(SHOW_CURSOR);
+	});
+
+	test("stays silent on a non-interactive stream and still propagates rejections", async () => {
+		setProgressEnabled(true);
+		const stream = fakeStream(false);
+		await expect(
+			withEnv(INTERACTIVE_ENV, () =>
+				withSpinner("Thinking…", () => Promise.reject(new Error("boom")), stream as never),
+			),
+		).rejects.toThrow("boom");
+		expect(stream.writes).toEqual([]);
 	});
 });

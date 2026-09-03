@@ -60,6 +60,8 @@ export const PROGRESS_LABELS: ProgressLabels = {
 	listTags: "Loading tags…",
 	listFolders: "Loading folders…",
 	listTasksByTag: "Loading tagged tasks…",
+	getTaskContext: "Gathering task context…",
+	createTaskTree: "Creating subtasks…",
 };
 
 let progressEnabled = false;
@@ -84,10 +86,27 @@ async function startSpinner(text: string, stream: ProgressStream): Promise<Activ
 }
 
 /**
- * Wrap a client so every method shows a spinner while it runs, when allowed.
- * The spinner is cleared (never persisted) on both success and failure —
- * the command's own output or error is the result the user should see.
+ * Run `fn` with a spinner showing `label` while it is in flight, when both
+ * gates allow it; otherwise just run it. The spinner is cleared (never
+ * persisted) on both success and failure — the caller's own output or error
+ * is the result the user should see. This is the one primitive behind
+ * `withProgress` and behind any other long wait (e.g. a model call).
  */
+export async function withSpinner<T>(
+	label: string,
+	fn: () => Promise<T>,
+	stream: ProgressStream = process.stderr,
+): Promise<T> {
+	if (!progressEnabled || !isInteractive(stream)) return fn();
+	const spinner = await startSpinner(label, stream);
+	try {
+		return await fn();
+	} finally {
+		spinner.stop();
+	}
+}
+
+/** Wrap a client so every method shows a spinner while it runs, when allowed. */
 export function withProgress(client: OmniFocusClient, opts: ProgressOptions = {}): OmniFocusClient {
 	const stream = opts.stream ?? process.stderr;
 	const labels: ProgressLabels = { ...PROGRESS_LABELS, ...opts.labels };
@@ -98,18 +117,7 @@ export function withProgress(client: OmniFocusClient, opts: ProgressOptions = {}
 			if (typeof value !== "function") return value;
 			const method = value as (...args: unknown[]) => Promise<unknown>;
 			const label = labels[prop as keyof OmniFocusClient] ?? DEFAULT_PROGRESS_LABEL;
-
-			return async (...args: unknown[]) => {
-				if (!progressEnabled || !isInteractive(stream)) {
-					return method.apply(target, args);
-				}
-				const spinner = await startSpinner(label, stream);
-				try {
-					return await method.apply(target, args);
-				} finally {
-					spinner.stop();
-				}
-			};
+			return (...args: unknown[]) => withSpinner(label, () => method.apply(target, args), stream);
 		},
 	});
 }

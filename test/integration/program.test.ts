@@ -124,6 +124,7 @@ describe("program assembly", () => {
 			tag: ["g"],
 			delete: ["d"],
 			notification: ["n"],
+			breakdown: ["b"],
 		});
 		expect(verbAliases("project")).toEqual({
 			add: ["a"],

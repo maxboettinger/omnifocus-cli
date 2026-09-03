@@ -1,5 +1,6 @@
 import { defineNoun } from "../noun.js";
 import { registerAddCommand } from "./add.js";
+import { registerBreakdownCommand } from "./breakdown.js";
 import { registerCompleteCommand } from "./complete.js";
 import { registerDeleteCommand } from "./delete.js";
 import { registerListCommand } from "./list.js";
@@ -25,6 +26,7 @@ export const registerTaskCommands = defineNoun({
 		registerTagCommand,
 		registerDeleteCommand,
 		registerNotificationCommands,
+		registerBreakdownCommand,
 	],
 	verbAliases: {
 		add: "a",
@@ -37,5 +39,6 @@ export const registerTaskCommands = defineNoun({
 		tag: "g",
 		delete: "d",
 		notification: "n",
+		breakdown: "b",
 	},
 });

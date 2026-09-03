@@ -10,7 +10,7 @@ All notable changes to this project are documented here. The format follows
 
 - AI features through [OpenRouter](https://openrouter.ai/) (`OPENROUTER_API_KEY`, optional
   `~/.config/omnifocus-cli/config.json` with `ai.apiKey`/`ai.model`, `--model` per run,
-  `$OF_AI_MODEL` globally; default model `google/gemini-2.5-flash`). Nothing else in the CLI
+  `$OF_AI_MODEL` globally; default model `google/gemini-3.8-flash`). Nothing else in the CLI
   needs a key.
 - `task breakdown <ref>` (`of t b`): splits a task into granular, AuDHD-friendly nano
   subtasks using structured output, with full context (parents, project, existing and

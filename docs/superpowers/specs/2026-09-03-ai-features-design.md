@@ -42,8 +42,8 @@ Prompts are plain Markdown files in one folder, loaded at runtime and overridabl
   `RequestAbortedError`/`ConnectionError` for transport failures. Attribution headers
   are `HTTP-Referer` and `X-OpenRouter-Title`. `openrouter/auto`, `:nitro`/`:floor`
   suffixes and a `models: []` fallback list are supported. `anthropic/claude-sonnet-4`
-  does not advertise structured outputs; `openai/gpt-4.1-mini`, `google/gemini-2.5-flash`
-  and `anthropic/claude-sonnet-5` do. Default model: `google/gemini-2.5-flash` (fast,
+  does not advertise structured outputs; `openai/gpt-4.1-mini`, `google/gemini-3.8-flash`
+  and `anthropic/claude-sonnet-5` do. Default model: `google/gemini-3.8-flash` (fast,
   cheap, strict schema support); overridable everywhere.
 - **Config precedence** in mature AI CLIs (`llm`, `aichat`, `mods`, `fabric`, `sgpt`):
   flag > env var > config file > built-in default; keys in env or a config file under

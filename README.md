@@ -270,13 +270,13 @@ API key, and nothing else in the CLI does — every other command works without 
 
 ```bash
 export OPENROUTER_API_KEY=sk-or-...        # or put it in the config file below
-export OF_AI_MODEL=openai/gpt-4.1-mini     # optional; default is google/gemini-2.5-flash
+export OF_AI_MODEL=openai/gpt-4.1-mini     # optional; default is google/gemini-3.8-flash
 ```
 
 Config file: `~/.config/omnifocus-cli/config.json` (`$XDG_CONFIG_HOME` respected):
 
 ```json
-{ "ai": { "apiKey": "sk-or-...", "model": "google/gemini-2.5-flash" } }
+{ "ai": { "apiKey": "sk-or-...", "model": "google/gemini-3.8-flash" } }
 ```
 
 Precedence is `--model` flag > `$OF_AI_MODEL` > config file > default; the key comes from

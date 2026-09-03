@@ -19,7 +19,7 @@ import { join } from "node:path";
 import { AIError } from "./types.js";
 
 /** Cheap, fast, and supports strict JSON-schema output through OpenRouter. */
-export const DEFAULT_MODEL = "google/gemini-2.5-flash";
+export const DEFAULT_MODEL = "google/gemini-3.8-flash";
 export const APP_REFERER = "https://github.com/maxboettinger/omnifocus-cli";
 export const APP_TITLE = "omnifocus-cli";
 

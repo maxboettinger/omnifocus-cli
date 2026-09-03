@@ -1,0 +1,44 @@
+# Changelog
+
+All notable changes to this project are documented here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project adheres to
+[Semantic Versioning](https://semver.org/).
+
+## [Unreleased]
+
+## [0.1.0] - 2026-09-03
+
+First public release of `of`, a command-line interface for OmniFocus on macOS.
+
+### Added
+
+- Noun-verb command surface: `task`, `project`, `tag`, `folder`, `inbox`, `bulk`, plus the
+  standalone `forecast`, `review`, `stats`, `collect` and `completion` commands.
+- One-letter aliases for every noun (`t p g f i b`) and every verb, so
+  `of t c 42` completes task 42.
+- Short task ids: human-mode listings prefix each task with a small stable number that any
+  task-reference argument accepts in place of a name or OmniFocus id.
+- Natural-language dates everywhere a date is accepted (`tomorrow`, `fri 5pm`, `2d`,
+  `next week`), resolved by OmniFocus's own parser; exact ISO forms are parsed locally.
+  Every date write is read back and verified.
+- `task move <ref> [due] [--defer] [--planned]` to reschedule any of a task's three dates.
+- Variadic `task complete` with per-reference results and `--incomplete`.
+- Task notifications: `task notification list|add|update|delete|clear`, with absolute and
+  due-relative reminders and repeat intervals.
+- Subtasks through `task add --parent`.
+- Inbox triage: `inbox list --newest-first`, `inbox process` and JSON-driven
+  `inbox process-many`.
+- Bulk operations from stdin JSON: `bulk add`, `bulk update`, `bulk complete`.
+- Scripting contract: JSON on stdout when piped or with `--json`, one JSON object per line on
+  piped stderr, stable exit codes, `NO_COLOR`/`FORCE_COLOR` support, and no UI chrome in JSON
+  mode.
+- Progress spinner on stderr during OmniFocus round-trips in interactive human mode.
+- Generated bash, zsh and fish completions (`of completion <shell>`) that cover every command
+  and alias.
+- Three-tier fuzzy entity resolution (exact, case-insensitive substring, ambiguity error with
+  candidates) instead of silent guessing.
+- Confirmation guard (`--confirm`) on every destructive verb.
+- Actionable errors for missing Automation permission and a missing OmniFocus app.
+
+[Unreleased]: https://github.com/maxboettinger/omnifocus-cli/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/maxboettinger/omnifocus-cli/releases/tag/v0.1.0

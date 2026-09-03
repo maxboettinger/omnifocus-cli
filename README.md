@@ -20,7 +20,21 @@ your terminal app, and enable **OmniFocus**.
 
 ## Installation
 
-### From source (recommended)
+### Prebuilt binary
+
+Each [GitHub release](https://github.com/maxboettinger/omnifocus-cli/releases) ships a
+standalone `of` binary for Apple Silicon and Intel Macs. No Bun required.
+
+```bash
+curl -fsSL https://github.com/maxboettinger/omnifocus-cli/releases/latest/download/of-darwin-arm64.tar.gz | tar -xz
+xattr -d com.apple.quarantine of   # the binary is not notarized; clear Gatekeeper's flag
+mv of ~/.local/bin/                 # or /usr/local/bin
+```
+
+Use `of-darwin-x64.tar.gz` on an Intel Mac. A `checksums.txt` next to the archives lists
+their SHA-256 sums.
+
+### From source
 
 ```bash
 git clone https://github.com/maxboettinger/omnifocus-cli.git

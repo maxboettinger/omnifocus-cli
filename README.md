@@ -20,6 +20,16 @@ your terminal app, and enable **OmniFocus**.
 
 ## Installation
 
+### Homebrew (recommended)
+
+```bash
+brew install maxboettinger/tap/omnifocus-cli
+```
+
+This installs `of` together with bash, zsh and fish completions. Homebrew 6 asks you to
+trust a third-party tap once; if the install refuses to load the formula, run
+`brew trust maxboettinger/tap` and retry.
+
 ### Prebuilt binary
 
 Each [GitHub release](https://github.com/maxboettinger/omnifocus-cli/releases) ships a
@@ -330,7 +340,14 @@ bun run check         # Biome lint + format check
 bun run typecheck     # TypeScript strict mode
 bun run build         # compile to standalone binary: ./of
 bun run dev -- task list --json   # run in dev mode
+scripts/build-release.sh          # both Mac binaries + checksums into dist/
 ```
+
+### Releasing
+
+Bump `version` in `package.json`, add the matching section to `CHANGELOG.md`, commit, and push
+a `vX.Y.Z` tag. The release workflow builds the binaries, creates the GitHub release with the
+changelog section as notes, publishes to npm, and updates the Homebrew tap.
 
 ### Architecture
 

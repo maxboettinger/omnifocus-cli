@@ -20,6 +20,13 @@ bun run dev -- task list --json    # run the CLI in dev mode
 
 There is no watch/CI script; run `check`, `typecheck`, and `test` before finishing work.
 
+## Releasing
+
+1. Bump `version` in package.json and add a `## [X.Y.Z] - YYYY-MM-DD` section to CHANGELOG.md (Keep a Changelog format; move `Unreleased` entries down and update the compare links at the bottom).
+2. Commit, then `git tag -a vX.Y.Z -m "vX.Y.Z"` and `git push origin main --follow-tags`.
+
+`.github/workflows/release.yml` does the rest on the tag push, in three jobs so one channel failing never blocks the others: `release` refuses a tag that does not match package.json, runs check/typecheck/test, builds both Mac binaries with `scripts/build-release.sh` (`dist/of-darwin-{arm64,x64}.tar.gz` + `checksums.txt`), and creates the GitHub release with notes from `scripts/release-notes.sh` (the CHANGELOG section, install snippet, checksums). `npm` publishes through npm trusted publishing (OIDC `id-token`, no token secret). `homebrew` regenerates `Formula/omnifocus-cli.rb` in `maxboettinger/homebrew-tap` with `scripts/homebrew-formula.sh <version> checksums.txt` and pushes it; this needs the `HOMEBREW_TAP_TOKEN` repository secret (a fine-grained PAT with contents: read/write on the tap) and is skipped with a warning when unset. Never hand-edit the formula in the tap; change the script (it is `brew audit --strict` clean: `Hardware::CPU.arm?` conditional urls, no explicit `version`, completions via `generate_completions_from_executable`).
+
 ## Architecture
 
 A macOS-only CLI that manages OmniFocus by shelling out to Apple Events. Strict three-layer boundary — **TypeScript never talks to OmniFocus directly**; all communication funnels through a single `osascript` invocation.

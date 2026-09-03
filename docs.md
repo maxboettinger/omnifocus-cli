@@ -145,6 +145,12 @@ bun run check         # Biome lint + format check
 bun run typecheck     # TypeScript strict checks
 bun run build         # Compile to single binary: ./of
 bun run dev -- task list --json   # Run CLI in dev mode
+scripts/build-release.sh          # Both Mac binaries + checksums into dist/
 ```
+
+### Release & distribution
+
+- Distribution is Bun-required source (`bun link`, npm package `omnifocus-cli` whose `bin` runs `src/index.ts` under Bun) plus standalone binaries compiled with `bun build --compile` for `bun-darwin-arm64` and `bun-darwin-x64`, attached to each GitHub release and served through the Homebrew tap `maxboettinger/homebrew-tap` (`brew install maxboettinger/tap/omnifocus-cli`).
+- `@/.github/workflows/release.yml` runs on a `v*` tag push: it checks the tag against `package.json`'s version, runs the CI gates, then builds (`@/scripts/build-release.sh`), creates the GitHub release with notes assembled by `@/scripts/release-notes.sh` from the matching `CHANGELOG.md` section, publishes to npm via trusted publishing, and regenerates the tap formula with `@/scripts/homebrew-formula.sh` (sha256 values are read from `checksums.txt`, never typed). The workflow, not a human, is the only writer of the formula.
 
 Created and maintained by Nori.
